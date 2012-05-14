@@ -1,0 +1,4 @@
+echo "MP - COMPILING ..."
+touch sourtime.c
+make
+exit
