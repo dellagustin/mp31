@@ -14,7 +14,8 @@
 #ifdef __MSDOS__
 #include <dir.h>
 #else
-#include <unistd.h>
+// modified by GD
+// #include <unistd.h>
 #endif
 #include "new_io.h"
 #include "rand2d.h"
@@ -45,14 +46,17 @@ char infoHeader[STRING]="http://brain.fuw.edu.pl";
 int prninfo=ON;
 
 float *MakeVector(int dim)   /* Utworzenie 1D tablicy danych float */
- {
-   const unsigned size=(unsigned)dim*sizeof(float);
-   float *tab;
-
-   if((tab=(float *)malloc(size))==NULL) return NULL;
-   (void)memset((void *)tab,0,size);
-   return tab;
- }
+{
+	const unsigned size=(unsigned)dim*sizeof(float);
+	float *tab;
+	
+	if((tab=(float *)malloc(size))==NULL) 
+		return NULL;
+	
+	(void)memset((void *)tab,0,size);
+	
+	return tab;
+}
 
 int Getopt(int argc, char **argv,char *opts)  	/* AT&T public domain */
 {
@@ -138,247 +142,260 @@ int ReadSygnal(char *name,int Mode)  /* Wczytanie sygnalu do analizy */
    return 0;
  }
 
+// Load signal from ascii file
 void Load(char *opt)		/* Ladowanie sygnalu w trybie ASCII */
- {
-   char *argv[MAXOPTIONS],name[STRING]="";
-   int argc,opcja,Mode=(int)DimBase,ok=0,SymMode=OFF;
-
-   StrToArgv(opt,argv,&argc);
-   opterr=optind=0; sp=1;
-   while((opcja=Getopt(argc,argv,"O:LRCS"))!=EOF)
-	switch(opcja) {
+{
+	char *argv[MAXOPTIONS],name[STRING]="";
+	int argc,opcja,Mode=(int)DimBase,ok=0,SymMode=OFF;
+	
+	StrToArgv(opt,argv,&argc);
+	opterr=optind=0; sp=1;
+	while((opcja=Getopt(argc,argv,"O:LRCS"))!=EOF)
+		switch(opcja) {
 	  case 'O':
-		ok=1;
-		strcpy(name,optarg);
-		break;
+		  ok=1;
+		  strcpy(name,optarg);
+		  break;
 	  case 'L':
-		Mode=0;			/* Lewy warunek brzegowy */
-		break;
+		  Mode=0;			/* Lewy warunek brzegowy */
+		  break;
 	  case 'R':
-		Mode=2*DimBase;		/* Prawy ----//-----//----- */
-		break;
+		  Mode=2*DimBase;		/* Prawy ----//-----//----- */
+		  break;
 	  case 'C':
-		Mode=DimBase;		/* Na upartego */
-		break;
-          case 'S':
-                SymMode=ON;
-                Mode=DimBase;
-                break;      
+		  Mode=DimBase;		/* Na upartego */
+		  break;
+	  case 'S':
+		  SymMode=ON;
+		  Mode=DimBase;
+		  break;      
 	  default:
-		fprintf(stderr,"Unknown option !\n");
-		FreeArgv(argv,argc);
-		return;
-	  }
-
-	 FreeArgv(argv,argc);
-	 if(ok==0)
-	  {
-	    fprintf(stderr,"Filename not given !\n");
-	    return;
-	  }
-
-	 if(prn==ON)
-	  {
-            if(SymMode==ON)
-              fprintf(stdout,"<<< SIMMETRIC BORDER CONDITION >>>\n");
-	    else if(Mode==0)
-	      fprintf(stdout,"<<< LEFT BORDER CONDITION >>>\n");
-	    else if(Mode==(int)DimBase)
-		   fprintf(stdout,"<<< LOADING SIGNAL >>>\n");
-		 else fprintf(stdout,"<<< RIGHT BORDER CONDITION >>>\n");
-	  }
-
-       if(ReadSygnal(name,Mode)==-1)
-	{
-	  fputs("Error reading signal !\n\r",stderr);
-	  return;
+		  fprintf(stderr,"Unknown option !\n");
+		  FreeArgv(argv,argc);
+		  return;
 	}
+	
+	FreeArgv(argv,argc);
+	if(ok==0)
+	{
+		fprintf(stderr,"Filename not given !\n");
+		return;
+	}
+	
+	if(prn==ON)
+	{
+		if(SymMode==ON)
+			fprintf(stdout,"<<< SIMMETRIC BORDER CONDITION >>>\n");
+		else if(Mode==0)
+			fprintf(stdout,"<<< LEFT BORDER CONDITION >>>\n");
+		else if(Mode==(int)DimBase)
+			fprintf(stdout,"<<< LOADING SIGNAL >>>\n");
+		else fprintf(stdout,"<<< RIGHT BORDER CONDITION >>>\n");
+	}
+	
+	if(ReadSygnal(name,Mode)==-1)
+	{
+		fputs("Error reading signal !\n\r",stderr);
+		return;
+	}
+	
+	if(SymMode==ON)
+	{
+		const int Offset=2*DimBase;
+		register int i;
+		
+		for(i=0 ; i<DimBase ; i++)
+			sygnal[i]=sygnal[Offset+i]=OrgSygnal[i];
+	}    
+	
+	if(prn==ON)
+		fprintf(stdout,"<<< SIGNAL LOADED (ASCII) >>>\n");
+}
 
-        if(SymMode==ON)
-         {
-           const int Offset=2*DimBase;
-           register int i;
-            
-           for(i=0 ; i<DimBase ; i++)
-             sygnal[i]=sygnal[Offset+i]=OrgSygnal[i];
-         }    
-
-        if(prn==ON)
-	  fprintf(stdout,"<<< SIGNAL LOADED (ASCII) >>>\n");
- }
+extern int FindChirp;
 
 void SetMPP(char *opt)
- {
-   const int OldDimBase=DimBase,OldOverSampling=OverSampling;
-   char *argv[MAXOPTIONS];
-   int argc,opcja,NewDimBase=DimBase,NewOverSampling=OverSampling;
-   extern void ReInitBaseSize(int,int);
-
-   StrToArgv(opt,argv,&argc);			/* Konwersja na postac argv */
-   opterr=optind=0; sp=1;
-   while((opcja=Getopt(argc,argv,"C:M:E:A:B:O:P:fI:h:o:F:p:N:TS:D:"))!=EOF)
-     switch(opcja) {
-        case 'S':
-                 NewOverSampling=atoi(optarg);
-        case 'T':
-                 MallatDiction=ON;
-                 DiadicStructure=ON;
-                 break;
-        case 'h':
-                 if(strcmp(optarg,"+")==0)
-                   Heuristic=ON;
-                 else if(strcmp(optarg,"-")==0)
-                   Heuristic=OFF;
-                 else 
-                   fprintf(stderr,"Bad option !\n");  
-                 break;    
-        case 'o':
-                 ROctave=atoi(optarg);
-                 break;
-        case 'f':
-                 RFreqency=atoi(optarg);
-                 break;
-        case 'p':
-                 RPosition=atoi(optarg);
-                 break;
-        case 'N': 
-                 StartDictionSize=atoi(optarg);
-                 Heuristic=ON;
-                 break;                                    
-        case 'I':
-                 if(strcmp(optarg,"+")==0)
-                   prninfo=ON;
-                 else if(strcmp(optarg,"-")==0)
-                   prninfo=OFF;
-                 else 
-                   fprintf(stderr,"Bad option !\n");  
-                 break;         
-	case 'F':
-		SamplingRate=atof(optarg);
-		break;
-	case 'C':
-		 ConvRate=atof(optarg);
-		 break;
-	case 'M':
-		 OldDimRoz=atoi(optarg);	/* Liczba wektorow w rozwiazaniu */
-		 break;
-	case 'E':
-		 epsylon=(float)atof(optarg);
-		 break;
-	case 'A':
-		 OldDimRoz+=atoi(optarg);	/* Zwiekszanie liczby o OPT */
-		 break;
-	case 'B':
-		 (void)strcpy(outname,optarg);
-		 if(prn==ON)
-		   fprintf(stdout,"New \"book\" filename   : %s\n",outname);
-		 break;
-        case 'O':
-	         NewDimBase=atoi(optarg);
-		 break;
-        case 'D':
-	  AdaptiveConst=(float)atof(optarg);
-	  break;
-	case 'P':
-		 if(strcmp(optarg,"on")==0 || strcmp(optarg,"+")==0)
-		   prn=ON;
-		 else if(strcmp(optarg,"off")==0 || strcmp(optarg,"-")==0)
-		   prn=OFF;
-		 else fprintf(stderr,"Incorrect parameter [on | off | + | -]\n");
-		 break;
-	default:
-		fprintf(stderr,"Unknown option !\n");
-		break;
-      }
-
-  if(Heuristic==ON)			/* Poprawnosc konfiguracji */
-   {
-     if(StartDictionSize>=DictionSize)
-      {
-        Heuristic=OFF;
-        fprintf(stderr,"Too big trial dictionary size: SIZE<%d !\n",
-                DictionSize);
-      }          
-     else if(FastMode==OFF)
-      {  
-        Heuristic=OFF;
-        fprintf(stderr,"Heuristic acceleration works only in FASTMODE !\n");
-      }  
-     else if(DiadicStructure==OFF)
-      {
-        Heuristic=OFF;  
-        fprintf(stderr,"Heuristic accel. works only for \"dyadic octaves\" dictionaries !\n");
-      }  
-   }
-
-  if(Heuristic==OFF)
-    StartDictionSize=DictionSize;    
-
-  if(OldDimBase!=NewDimBase || OldOverSampling!=NewOverSampling)
-    {
-      if(prn==ON)
-	fprintf(stdout,"<<< CHANGE OF BASE DIMENSION >>>\n\n");
-      ReInitBaseSize(NewDimBase,NewOverSampling);
-    }
-   
-  if(prn==ON)
-   {
-    fprintf(stdout,"CURRENT SETTINGS:\n"
-		   "Reconstruction accuracy       %g %%\n"
-		   "Max number of iterations      %d\n"
-		   "Signal (base) size            %d\n"
-		   "Sampling frequency            %f Hz\n"
-		   "Calibration coeff. [p/uV]     %f 1/uV\n"
-                   "Number of Gabor atoms         %d\n"
-                   "Total number of atoms         %d\n"
-                   "Oversampling                  %d\n" 
-	           "Adaprive dictionary parameter %g\n"
-		    ,epsylon,OldDimRoz,DimBase,
-		    SamplingRate,ConvRate,DictionSize,
-                    DictionSize+(3*DimBase)/2,OverSampling,AdaptiveConst);
-
-    fprintf(stdout,"Information display           ");
-     if(prn==ON)
-       fprintf(stdout,"ON\n");
-     else if(prn==OFF) fprintf(stdout,"OFF\n");
-     
-    fprintf(stdout,"Decomposition progress info   ");
-     if(prninfo==ON)
-       fprintf(stdout,"ON\n");
-     else if(prninfo==OFF) fprintf(stdout,"OFF\n");
-     
-    fprintf(stdout,"Dyadic scales (2^j)           ");
-     if(DiadicStructure==ON)
-       fprintf(stdout,"ON\n");
-     else if(DiadicStructure==OFF) fprintf(stdout,"OFF\n");
-     
-    fprintf(stdout,"Dyadic dictionary             ");
-     if(MallatDiction==ON)
-       fprintf(stdout,"ON\n");
-     else if(MallatDiction==OFF) fprintf(stdout,"OFF\n");
-     
-    fprintf(stdout,"FASTMODE                      ");
-     if(FastMode==ON)
-       fprintf(stdout,"ON\n");
-     else if(FastMode==OFF) fprintf(stdout,"OFF\n");
-    
-    fprintf(stdout,"Heuristic acceleration        ");
-    if(Heuristic==ON)
-      {
-        fprintf(stdout,"ON\n");
-        fprintf(stdout," Size of trial dictionary       %d\n"
-                       " Octave \"radius\"                %d\n"
-                       " Frequency --\"--                %d\n"
-                       " Translation --\"--              %d\n",
-                       StartDictionSize,ROctave,RFreqency,
-                       RPosition);
-      }  
-     else if(Heuristic==OFF) fprintf(stdout,"OFF\n");
-     fprintf(stdout,"\n");
-   }
-
-  FreeArgv(argv,argc);
- }
+{
+	const int OldDimBase=DimBase,OldOverSampling=OverSampling;
+	char *argv[MAXOPTIONS];
+	int argc,opcja,NewDimBase=DimBase,NewOverSampling=OverSampling;
+	extern void ReInitBaseSize(int,int);
+	
+	StrToArgv(opt,argv,&argc);			/* Konwersja na postac argv */
+	opterr=optind=0; sp=1;
+	while((opcja=Getopt(argc,argv,"C:M:E:A:B:O:P:fI:h:o:F:p:N:TS:D:Z:"))!=EOF)
+	{
+		switch(opcja)
+		{
+		case 'S':
+			NewOverSampling=atoi(optarg);
+		case 'T':
+			MallatDiction=ON;
+			DiadicStructure=ON;
+			break;
+		case 'h':
+			if(strcmp(optarg,"+")==0)
+				Heuristic=ON;
+			else if(strcmp(optarg,"-")==0)
+				Heuristic=OFF;
+			else 
+				fprintf(stderr,"Bad option !\n");  
+			break;    
+		case 'o':
+			ROctave=atoi(optarg);
+			break;
+		case 'f':
+			RFreqency=atoi(optarg);
+			break;
+		case 'p':
+			RPosition=atoi(optarg);
+			break;
+		case 'N': 
+			StartDictionSize=atoi(optarg);
+			Heuristic=ON;
+			break;                                    
+		case 'I':
+			if(strcmp(optarg,"+")==0)
+				prninfo=ON;
+			else if(strcmp(optarg,"-")==0)
+				prninfo=OFF;
+			else 
+				fprintf(stderr,"Bad option !\n");  
+			break;         
+		case 'F':
+			SamplingRate=atof(optarg);
+			break;
+		case 'C':
+			ConvRate=atof(optarg);
+			break;
+		case 'M':
+			OldDimRoz=atoi(optarg);	/* Liczba wektorow w rozwiazaniu */
+			break;
+		case 'E':
+			epsylon=(float)atof(optarg);
+			break;
+		case 'A':
+			OldDimRoz+=atoi(optarg);	/* Zwiekszanie liczby o OPT */
+			break;
+		case 'B':
+			(void)strcpy(outname,optarg);
+			if(prn==ON)
+				fprintf(stdout,"New \"book\" filename   : %s\n",outname);
+			break;
+		case 'O':
+			NewDimBase=atoi(optarg);
+			break;
+		case 'D':
+			AdaptiveConst=(float)atof(optarg);
+			break;
+		case 'P':
+			if(strcmp(optarg,"on")==0 || strcmp(optarg,"+")==0)
+				prn=ON;
+			else if(strcmp(optarg,"off")==0 || strcmp(optarg,"-")==0)
+				prn=OFF;
+			else fprintf(stderr,"Incorrect parameter [on | off | + | -]\n");
+			break;
+		case 'Z':
+			if(strcmp(optarg,"on")==0 || strcmp(optarg,"+")==0)
+				FindChirp=ON;
+			else if(strcmp(optarg,"off")==0 || strcmp(optarg,"-")==0)
+				FindChirp=OFF;
+			else fprintf(stderr,"Incorrect parameter [on | off | + | -]\n");
+			break;
+		default:
+			fprintf(stderr,"Unknown option !\n");
+			break;
+		}
+	}
+	
+	if(Heuristic==ON)			/* Poprawnosc konfiguracji */
+	{
+		if(StartDictionSize>=DictionSize)
+		{
+			Heuristic=OFF;
+			fprintf(stderr,"Too big trial dictionary size: SIZE<%d !\n",
+				DictionSize);
+		}          
+		else if(FastMode==OFF)
+		{  
+			Heuristic=OFF;
+			fprintf(stderr,"Heuristic acceleration works only in FASTMODE !\n");
+		}  
+		else if(DiadicStructure==OFF)
+		{
+			Heuristic=OFF;  
+			fprintf(stderr,"Heuristic accel. works only for \"dyadic octaves\" dictionaries !\n");
+		}  
+	}
+	
+	if(Heuristic==OFF)
+		StartDictionSize=DictionSize;    
+	
+	if(OldDimBase!=NewDimBase || OldOverSampling!=NewOverSampling)
+	{
+		if(prn==ON)
+			fprintf(stdout,"<<< CHANGE OF BASE DIMENSION >>>\n\n");
+		ReInitBaseSize(NewDimBase,NewOverSampling);
+	}
+	
+	if(prn==ON)
+	{
+		fprintf(stdout,"CURRENT SETTINGS:\n"
+			"Reconstruction accuracy       %g %%\n"
+			"Max number of iterations      %d\n"
+			"Signal (base) size            %d\n"
+			"Sampling frequency            %f Hz\n"
+			"Calibration coeff. [p/uV]     %f 1/uV\n"
+			"Number of Gabor atoms         %d\n"
+			"Total number of atoms         %d\n"
+			"Oversampling                  %d\n" 
+			"Adaprive dictionary parameter %g\n"
+			,epsylon,OldDimRoz,DimBase,
+			SamplingRate,ConvRate,DictionSize,
+			DictionSize+(3*DimBase)/2,OverSampling,AdaptiveConst);
+		
+		fprintf(stdout,"Information display           ");
+		if(prn==ON)
+			fprintf(stdout,"ON\n");
+		else if(prn==OFF) fprintf(stdout,"OFF\n");
+		
+		fprintf(stdout,"Decomposition progress info   ");
+		if(prninfo==ON)
+			fprintf(stdout,"ON\n");
+		else if(prninfo==OFF) fprintf(stdout,"OFF\n");
+		
+		fprintf(stdout,"Dyadic scales (2^j)           ");
+		if(DiadicStructure==ON)
+			fprintf(stdout,"ON\n");
+		else if(DiadicStructure==OFF) fprintf(stdout,"OFF\n");
+		
+		fprintf(stdout,"Dyadic dictionary             ");
+		if(MallatDiction==ON)
+			fprintf(stdout,"ON\n");
+		else if(MallatDiction==OFF) fprintf(stdout,"OFF\n");
+		
+		fprintf(stdout,"FASTMODE                      ");
+		if(FastMode==ON)
+			fprintf(stdout,"ON\n");
+		else if(FastMode==OFF) fprintf(stdout,"OFF\n");
+		
+		fprintf(stdout,"Heuristic acceleration        ");
+		if(Heuristic==ON)
+		{
+			fprintf(stdout,"ON\n");
+			fprintf(stdout," Size of trial dictionary       %d\n"
+				" Octave \"radius\"                %d\n"
+				" Frequency --\"--                %d\n"
+				" Translation --\"--              %d\n",
+				StartDictionSize,ROctave,RFreqency,
+				RPosition);
+		}  
+		else if(Heuristic==OFF) fprintf(stdout,"OFF\n");
+		fprintf(stdout,"\n");
+	}
+	
+	FreeArgv(argv,argc);
+}
 
 void PrintBook(void)	/* Wydruk parametrow atomow na ekran */
  {
@@ -419,35 +436,38 @@ void TypeSignal(char *string)		/* Wyswietlenie informacji o sygnale */
  }
 
 void Reset(char *string)	 /* Zerowanie tablicy z sygnalem */
- {
-  const int trueDim=3*DimBase;
-  register int i;
+{
+	const int trueDim=3*DimBase;
+	register int i;
+	
+	if(string!=NULL && prn==1)
+		fprintf(stdout,"<<< RESETTING SIGNAL %s >>>\n",string);
+	
+	for(i=0 ; i<trueDim ; i++)
+		sygnal[i]=0.0F;
+	
+	for(i=0 ; i<DimBase ; i++)
+		OrgSygnal[i]=0.0F;
+}
 
-  if(string!=NULL && prn==1)
-    fprintf(stdout,"<<< RESETTING SIGNAL %s >>>\n",string);
+static float Gabor(float s,float t, float freq, float phase, float crate,int x)
+{
+	float tmp,Amp, rt;
+	
+	if(s==0.0F)
+		return (((float)x==t) ? ((phase>0.0) ? -1.0F : 1.0F) : 0.0F);
+	else if(s==(float)DimBase)
+		Amp=1.0F;
+	else 
+	{
+		tmp=(((float)x)-t)/s;
+		Amp=exp(-M_PI*SQR(tmp));
+	}
 
-  for(i=0 ; i<trueDim ; i++)
-    sygnal[i]=0.0F;
-  for(i=0 ; i<DimBase ; i++)
-    OrgSygnal[i]=0.0F;
- }
-
-static float Gabor(float s,float t,float freq,float phase,int x)
- {
-   float tmp,Amp;
-   
-   if(s==0.0F)
-     return (((float)x==t) ? ((phase>0.0) ? -1.0F : 1.0F) : 0.0F);
-   else if(s==(float)DimBase)
-     Amp=1.0F;
-   else 
-     {
-       tmp=(x-t)/s;
-       Amp=exp(-M_PI*SQR(tmp));
-     }
-   
-   return Amp*cos(freq*(x-t)+phase);
- }
+	rt = ((float)x)-t;
+	
+	return Amp*cos((rt)*(freq + (rt)*crate)+phase);
+}
   
 /* Zamiana fazy w konwencji Mallata na faze w konwencji HMPP */
 
@@ -471,38 +491,42 @@ static double MppPhase(double freq,double position,double phase)
 }
 
 void Rekonstrukcja(void)
- {
-   float sum,*Baza;
-   int i,j;
-   
-   if(prn==ON)
-     fprintf(stdout,"<<< RECONSTRUCTING SIGNAL FROM A \"BOOK\" >>>\n");
-
+{
+	float sum,*Baza;
+	int i,j;
+	
+	if(prn==ON)
+		fprintf(stdout,"<<< RECONSTRUCTING SIGNAL FROM A \"BOOK\" >>>\n");
+	
 	if((Baza=MakeVector(DimBase))==NULL)
-	     {
+	{
 		fputs("Not enough memory for base vector (LoadBook)\n\r",stderr);
 		return;
-	     }
-
-	 for(i=0 ; i<DimBase ; i++)		/* reszta staje sie zerowa */
-	   sygnal[DimBase+i]=OrgSygnal[i]=0.0F;	/* zakladamy rzeczywisty==rekonstruowany */
-
-	 for(i=0 ; i<dimroz ; i++)
-	    {
-	      sum=0.0F;
-	      for(j=0 ; j<DimBase ; j++)
+	}
+	
+	for(i=0 ; i<DimBase ; i++)		/* reszta staje sie zerowa */
+		sygnal[DimBase+i]=OrgSygnal[i]=0.0F;	/* zakladamy rzeczywisty==rekonstruowany */
+	
+	for(i=0 ; i<dimroz ; i++)
+	{
+		sum=0.0F;
+		
+		for(j=0 ; j<DimBase ; j++)
 		{
-		  Baza[j]=Gabor(book[i].param[0],book[i].param[1],
-				book[i].param[2],book[i].phase,j);
-		  sum+=SQR(Baza[j]);
+			Baza[j]=Gabor(book[i].param[0],book[i].param[1],
+				book[i].param[2],book[i].phase,book[i].param[3], j);
+			
+			sum+=SQR(Baza[j]);
 		}
-
-	       sum=book[i].waga/(float)sqrt(sum);
-	       for(j=0 ; j<DimBase ; j++)
-		 OrgSygnal[j]+=sum*Baza[j];		/* rekonstrukcja "orginalu" */
-	    }
+	
+		sum=book[i].waga/(float)sqrt(sum);
+		
+		for(j=0 ; j<DimBase ; j++)
+			OrgSygnal[j]+=sum*Baza[j];		/* rekonstrukcja "orginalu" */
+	}
+	
 	FreeVector(Baza);
- }
+}
 
 int LoadBookStatus;
 
@@ -1180,54 +1204,60 @@ void RestartDiction(char *opt)
  }
  
 void AscSaveAllAtoms(char *opt)
- {
-   char *argv[MAXOPTIONS],tryb[5],name[STRING]="book.asc";
-   int opcja,argc,i;
-   FILE *plik;
-
-   if(Compute==OFF)
-     {
-       fprintf(stderr,"No decomposition computed !\n");
-       return;
-     }
-        
-   if(prn==ON)
-     fprintf(stdout,"<<< SAVING ATOMS IN TEXT MODE >>>\n");
-   (void)strcpy(name,outname);
-   StrToArgv(opt,argv,&argc);			/* Konwersja na postac argv */
-   opterr=optind=0; sp=1;
-   while((opcja=Getopt(argc,argv,"S:A:sa"))!=EOF)
-    switch(opcja) {
-       case 'S':
-		(void)strcpy(name,optarg);
-       case 's':
-		(void)strcpy(tryb,"wt");	/* Utworzenie nowego pliku */
-		break;
-       case 'A':
-	       (void)strcpy(name,optarg);
-       case 'a':
-	       (void)strcpy(tryb,"a+t");
-	       break;
-       default:
-	       fprintf(stderr,"Unknown option !\n");
-	       FreeArgv(argv,argc);
-	       return;
+{
+	char *argv[MAXOPTIONS],tryb[5],name[STRING]="book.asc";
+	int opcja,argc,i;
+	FILE *plik;
+	
+	if(Compute==OFF)
+	{
+		fprintf(stderr,"No decomposition computed !\n");
+		return;
 	}
-
-   FreeArgv(argv,argc);
-   if((plik=fopen(name,tryb))==NULL)
+	
+	if(prn==ON)
+		fprintf(stdout,"<<< SAVING ATOMS IN TEXT MODE >>>\n");
+	(void)strcpy(name,outname);
+	StrToArgv(opt,argv,&argc);			/* Konwersja na postac argv */
+	opterr=optind=0; sp=1;
+	while((opcja=Getopt(argc,argv,"S:A:sa"))!=EOF)
+		switch(opcja) {
+       case 'S':
+		   (void)strcpy(name,optarg);
+       case 's':
+		   (void)strcpy(tryb,"wt");	/* Utworzenie nowego pliku */
+		   break;
+       case 'A':
+		   (void)strcpy(name,optarg);
+       case 'a':
+		   (void)strcpy(tryb,"a+t");
+		   break;
+       default:
+		   fprintf(stderr,"Unknown option !\n");
+		   FreeArgv(argv,argc);
+		   return;
+	}
+	
+	FreeArgv(argv,argc);
+	if((plik=fopen(name,tryb))==NULL)
     {
-      fprintf(stderr,"Cannot open file %s (%s)\n",name,tryb);
-      return;
+		fprintf(stderr,"Cannot open file %s (%s)\n",name,tryb);
+		return;
     }
     
-   for(i=0 ; i<dimroz ; i++)
-    fprintf(plik,"%g %g %g %g %g\n",book[i].waga,book[i].param[0],
-            book[i].param[1],book[i].param[2],book[i].phase);
-   fclose(plik);
-   if(prn==ON)
-     fprintf(stdout,"<<< FINISHED SAVING ATOMS IN TEXT MODE >>>\n");
- }
+	// GD: em fase de testes!
+	/*for(i=0 ; i<dimroz ; i++)
+		fprintf(plik,"%g %g %g %g %g\n",book[i].waga,book[i].param[0],
+		book[i].param[1],book[i].param[2],book[i].phase);*/
+
+	for(i=0 ; i<dimroz ; i++)
+		fprintf(plik,"%g %g %g %g %g %g\n",book[i].waga,book[i].param[0],
+		book[i].param[1],book[i].param[2],book[i].phase, book[i].param[3]);
+
+	fclose(plik);
+	if(prn==ON)
+		fprintf(stdout,"<<< FINISHED SAVING ATOMS IN TEXT MODE >>>\n");
+}
             
 void AscLoadBook(char *opt)			/* Zaladowanie ksiazki do analizy */
  {						/* dotyczy tylko modulow zewnetrznych */
@@ -1319,167 +1349,180 @@ void AscLoadBook(char *opt)			/* Zaladowanie ksiazki do analizy */
 #define TOL  1.0e-7F		        /* Dokladnosc  */
 
 void SigReconst(char *opt)		/* Rekonstrukcja sygnalu */
- {
-   float *rek,sum,*Baza;
-   FILE *plik;
-   int i,j,opcja,argc,sposob,numerek=0;
-   char *argv[MAXOPTIONS],filename[STRING];
-
-   if(Compute==OFF)
-    {
-      fprintf(stderr,"No decomposition computed\n");
-      return;
-    }
-
-   StrToArgv(opt,argv,&argc);			/* Konwersja na postac argv */
-   opterr=optind=0; sp=1;
-   sposob=SLOW;
-   while((opcja=Getopt(argc,argv,"O:FSRMm:"))!=EOF)
-     switch(opcja) {
-       case 'm':
-		sposob=ONE;
-		numerek=atoi(optarg);
-		break;
-       case 'O':
-		(void)strcpy(filename,optarg);
-		break;
-       case 'F':
-		sposob=FAST;			/* Szybka rekonstrukcja */
-		break;
-       case 'S':
-		sposob=SLOW;			/* Z pelnymi obliczeniami */
-		break;
-       case 'R':
-		sposob=RES;			/* Tylko reszta */
-		break;
-       case 'M':
-		sposob=MULT;
-		break;
-       default:
-		fputs("Unknown option !\r\n",stderr);
-		FreeArgv(argv,argc);
+{
+	float *rek,sum,*Baza;
+	FILE *plik;
+	int i,j,opcja,argc,sposob,numerek=0;
+	char *argv[MAXOPTIONS],filename[STRING];
+	
+	if(Compute==OFF)
+	{
+		fprintf(stderr,"No decomposition computed\n");
 		return;
-    }
+	}
+	
+	StrToArgv(opt,argv,&argc);			/* Konwersja na postac argv */
+	opterr=optind=0; sp=1;
+	sposob=SLOW;
 
-   FreeArgv(argv,argc);
-   if((plik=fopen(filename,"wt"))==NULL)
-    {
-      fputs("Cannot open file (Reconstruction) !\n\r",stderr);
-      return;
-    }
-
-   if(sposob==SLOW || sposob==MULT)
-     {
-       if((rek=MakeVector(DimBase))==NULL)
-	 {
-	   fputs("Not enough memory for reconstruction vector\n\r",stderr);
-	   return;
-	 }
-
-       if((Baza=MakeVector(DimBase))==NULL)
-	 {
-	   fputs("Not enough memory for base vector (Reconstruction)\n\r",stderr);
-	   return;
-	 }
-       
-       if(sposob==SLOW)
-	 {
-	   if(prn==ON)
-	     fprintf(stdout,"<<< SIGNAL RECONSTRUCTION FROM NON-ORTHOGONAL BASE >>>\n");
-	   for(i=0 ; i<DimBase ; i++)
-	     rek[i]=0.0F;
-	 }
-
-       for(i=0 ; i<dimroz ; i++)
-	 {
-	   if(prn==ON)
-	     {
-	       fprintf(stdout,"->%5d\r",i);
-	       fflush(stdout);
-	     }
-
-	   sum=0.0F;
-	   for(j=0 ; j<DimBase ; j++)
-	     {
-	       Baza[j]=Gabor(book[i].param[0],book[i].param[1],
-			     book[i].param[2],book[i].phase,j);
-	       sum+=SQR(Baza[j]);
-	     }
-
-	   sum=book[i].waga/((sum<=TOL) ? 1.0F : sqrt(sum));
-	   for(j=0 ; j<DimBase ; j++)
-	     {
-	       Baza[j]*=sum;
-	       if(sposob==SLOW)
-		 rek[j]+=Baza[j];
-	     }
-
-	   if(sposob==MULT)		/* Generacja poszczegolnych atomow */
+	while((opcja=Getopt(argc,argv,"O:FSRMm:"))!=EOF)
+	{
+		switch(opcja)
 		{
-		  fprintf(plik,"#\n#  SCALE= %g TRANS= %g FREQ= %g PHASE= %g MODULUS= %g\n#\n",
-			  book[i].param[0],book[i].param[1],
-			  book[i].param[2],book[i].phase,book[i].waga);
-
-		  for(j=0 ; j<DimBase ; j++)
-		    fprintf(plik,"%d %g\n",j,Baza[j]);
+		case 'm':
+			sposob=ONE;
+			numerek=atoi(optarg);
+			break;
+		case 'O':
+			(void)strcpy(filename,optarg);
+			break;
+		case 'F':
+			sposob=FAST;			/* Szybka rekonstrukcja */
+			break;
+		case 'S':
+			sposob=SLOW;			/* Z pelnymi obliczeniami */
+			break;
+		case 'R':
+			sposob=RES;			/* Tylko reszta */
+			break;
+		case 'M':
+			sposob=MULT;
+			break;
+		default:
+			fputs("Unknown option !\r\n",stderr);
+			FreeArgv(argv,argc);
+			return;
 		}
-	 }
-
-       if(prn==ON)
-	 fprintf(stdout,"\n");
-
-       if(sposob==SLOW)
-	 for(i=0 ; i<DimBase ; i++)
-	   fprintf(plik,"%d %g\n",i,rek[i]);
-       
-       FreeVector(rek); 
-       FreeVector(Baza);
-     }
-   else if(sposob==FAST)
-     {
-       if(prn==ON)
-	 fprintf(stdout,"<<< FAST RECONSTRUCTION OF SIGNAL >>>\n");
-       for(i=0 ; i<DimBase ; i++)
-	 fprintf(plik,"%d %g\n",i,OrgSygnal[i]-sygnal[DimBase+i]);
-     }
-   else if(sposob==RES)
-     {
-       if(prn==ON)
-	 fprintf(stdout,"<<< SAVING RESIDUAL SINAL >>>\n");
-       for(i=0 ; i<DimBase ; i++)
-	 fprintf(plik,"%d %g\n",i,sygnal[DimBase+i]);
-     } else if(sposob==ONE)
-       {
-	 if(prn==ON)
-	   fprintf(stdout,"<<< CREATING ATOM NR %d >>>\n",numerek);
-	 
-	 if(numerek<0 || numerek>=dimroz)
-	   {
-	     fprintf(stderr,"Bad number range !\n");
-	     return;
-	   }
-	 
-	 if((Baza=MakeVector(DimBase))==NULL)
-	   {
-	     fputs("Not enough memory for base vector (Reconstruction)\n\r",stderr);
-	     return;
-	   }
-	 
-	 sum=0.0F;
-	 for(j=0 ; j<DimBase ; j++)
-	   {
-	     Baza[j]=Gabor(book[numerek].param[0],book[numerek].param[1],
-			   book[numerek].param[2],book[numerek].phase,j);
-	     sum+=SQR(Baza[j]);
-	   }
-	 
-	 sum=book[numerek].waga/(float)sqrt(sum);
-	 for(i=0 ; i<DimBase ; i++)
-	   fprintf(plik,"%d %g\n",i,Baza[i]*sum);
-       }
-   
-   fclose(plik);
- }
+	}
+	
+	FreeArgv(argv,argc);
+	
+	if((plik=fopen(filename,"wt"))==NULL)
+	{
+		fputs("Cannot open file (Reconstruction) !\n\r",stderr);
+		return;
+	}
+	
+	if(sposob==SLOW || sposob==MULT)
+	{
+		if((rek=MakeVector(DimBase))==NULL)
+		{
+			fputs("Not enough memory for reconstruction vector\n\r",stderr);
+			return;
+		}
+		
+		if((Baza=MakeVector(DimBase))==NULL)
+		{
+			fputs("Not enough memory for base vector (Reconstruction)\n\r",stderr);
+			return;
+		}
+		
+		if(sposob==SLOW)
+		{
+			if(prn==ON)
+				fprintf(stdout,"<<< SIGNAL RECONSTRUCTION FROM NON-ORTHOGONAL BASE >>>\n");
+			for(i=0 ; i<DimBase ; i++)
+				rek[i]=0.0F;
+		}
+		
+		for(i=0 ; i<dimroz ; i++)
+		{
+			if(prn==ON)
+			{
+				fprintf(stdout,"->%5d\r",i);
+				fflush(stdout);
+			}
+			
+			sum=0.0F;
+			for(j=0 ; j<DimBase ; j++)
+			{
+				Baza[j]=Gabor(book[i].param[0],book[i].param[1],
+					book[i].param[2],book[i].phase,book[i].param[3],j);
+				sum+=SQR(Baza[j]);
+			}
+			
+			sum=book[i].waga/((sum<=TOL) ? 1.0F : sqrt(sum));
+			for(j=0 ; j<DimBase ; j++)
+			{
+				Baza[j]*=sum;
+				if(sposob==SLOW)
+					rek[j]+=Baza[j];
+			}
+			
+			if(sposob==MULT)		/* Generacja poszczegolnych atomow */
+			{
+				fprintf(plik,"#\n#  SCALE= %g TRANS= %g FREQ= %g PHASE= %g MODULUS= %g\n#\n",
+					book[i].param[0],book[i].param[1],
+					book[i].param[2],book[i].phase,book[i].waga);
+				
+				for(j=0 ; j<DimBase ; j++)
+					fprintf(plik,"%d %g\n",j,Baza[j]);
+			}
+		}
+		
+		if(prn==ON)
+			fprintf(stdout,"\n");
+		
+		if(sposob==SLOW)
+		{
+			for(i=0 ; i<DimBase ; i++)
+			{
+				fprintf(plik,"%d %g\n",i,rek[i]);
+			}
+		}
+			
+		FreeVector(rek); 
+		FreeVector(Baza);
+	}
+	else if(sposob==FAST)
+	{
+		if(prn==ON)
+			fprintf(stdout,"<<< FAST RECONSTRUCTION OF SIGNAL >>>\n");
+		
+		for(i=0 ; i<DimBase ; i++)
+			fprintf(plik,"%d %g\n",i,OrgSygnal[i]-sygnal[DimBase+i]);
+	}
+	else if(sposob==RES)
+	{
+		if(prn==ON)
+			fprintf(stdout,"<<< SAVING RESIDUAL SINAL >>>\n");
+		
+		for(i=0 ; i<DimBase ; i++)
+			fprintf(plik,"%d %g\n",i,sygnal[DimBase+i]);
+	}
+	else if(sposob==ONE)
+	{
+		if(prn==ON)
+			fprintf(stdout,"<<< CREATING ATOM NR %d >>>\n",numerek);
+		
+		if(numerek<0 || numerek>=dimroz)
+		{
+			fprintf(stderr,"Bad number range !\n");
+			return;
+		}
+		
+		if((Baza=MakeVector(DimBase))==NULL)
+		{
+			fputs("Not enough memory for base vector (Reconstruction)\n\r",stderr);
+			return;
+		}
+		
+		sum=0.0F;
+		for(j=0 ; j<DimBase ; j++)
+		{
+			Baza[j]=Gabor(book[numerek].param[0],book[numerek].param[1],
+				book[numerek].param[2],book[numerek].phase,book[i].param[3],j);
+			sum+=SQR(Baza[j]);
+		}
+		
+		sum=book[numerek].waga/(float)sqrt(sum);
+		
+		for(i=0 ; i<DimBase ; i++)
+			fprintf(plik,"%d %g\n",i,Baza[i]*sum);
+	}
+	
+	fclose(plik);
+}
                                 
 void TranslateAtoms(int trans)       /* Translacja atomu (na potrzeby frott) */
  {
@@ -1537,16 +1580,17 @@ void TuneOctave(char *opt)          /* Ustawienie dystrybuanty dla skal */
  }
  
 void ResetDyst(void)       /* Resetowanie dytrybuanty */
- {
-   register int i;
-   
-   if(OctaveDyst!=NULL)
+{
+	register int i;
+	
+	if(OctaveDyst!=NULL)
     {
-      for(i=0 ; i<DimBase ; i++)
-	OctaveDyst[i]=1.0F;
-      InicRandom1D();   
+		for(i = 0; i < DimBase; i++)
+			OctaveDyst[i]=1.0F;
+
+		InicRandom1D();   
     }  
- } 
+} 
  
 void ShowDyst(char *string)     /* Wyswietlenie informacje o rozkladzie skal */
  {
@@ -1565,14 +1609,15 @@ void ShowDyst(char *string)     /* Wyswietlenie informacje o rozkladzie skal */
  }         
       
 void SetTuneScale(void)  /* Inicjacja tablic */
- {
-   if((OctaveDyst=(float *)malloc(DimBase*sizeof(float)))==NULL)
+{
+	if((OctaveDyst=(float *)malloc(DimBase*sizeof(float)))==NULL)
     {
-      fprintf(stderr,"Problemy z alokacja pamieci pod dystrybuante !\n");
-      exit(EXIT_FAILURE);
+		fprintf(stderr,"Problemy z alokacja pamieci pod dystrybuante !\n");
+		exit(EXIT_FAILURE);
     }
-   ResetDyst(); 
- }  
+	
+	ResetDyst(); 
+}  
  
 void CloseTune(void)   /* Usuwanie tablic */
  {
@@ -1617,15 +1662,20 @@ void Echo(char *string)   /* Komunikat na ekran (dla polecen skryptowych) */
    return;
  }
 
-char *trim(char *string) {
-  register int i;
+char *trim(char *string)
+{
+	register int i;
+	
+	for(i=strlen(string)-1 ; i>=0 ; i--)
+	{
+		if(!isspace(string[i]))
+		{
+			string[i+1]='\0';
+			break;
+		}
 
-  for(i=strlen(string)-1 ; i>=0 ; i--)
-    if(!isspace(string[i])) {
-      string[i+1]='\0';
-      break;
-    }
-  return string;
+		return string;
+	}
 }
 
 #define AUTO     0

@@ -53,27 +53,30 @@ __inline__
 #endif
 double TSQR(double x) { return x*x; }
 
-typedef struct {
-  char       typ;		/* Rodzaj atomu */
-  int        scale;		/* skala atomu */
-  int        trans;		/* translacja */
-  int        iScale;            /* Wskaznik skali */
-  int        iFreq;             /* Wskaznik czestotliwosci */
-  double     frequency; 	/* czestotliwosc */
-  double     modulus;           /* wspolczynnik rozwiniecia */
-  double     phase;             /* faza atomu */
-  double     amplitude;		/* amplituda sygnalu */
+typedef struct
+{
+	char       typ;		/* Rodzaj atomu */
+	int        scale;		/* skala atomu */
+	int        trans;		/* translacja */
+	int        iScale;            /* Wskaznik skali */
+	int        iFreq;             /* Wskaznik czestotliwosci */
+	double     frequency; 	/* czestotliwosc */
+	double     modulus;           /* wspolczynnik rozwiniecia */
+	double     phase;             /* faza atomu */
+	double     amplitude;		/* amplituda sygnalu */
+	double     chirpfactor;
 } BIGATOM;    
 
-typedef struct {
-  FLOAT CNorm;			/* Norma kosinusowa */
-  FLOAT SNorm;			/* Norma sinusowa */
-  FLOAT Fc;			/* Iloczyn kosinusowy z sygnalem */
-  FLOAT Fs;			/* Iloczyn sinusowy z sygnalem */
-  FLOAT Modulus;		/* Ostatina wartosc modulusa (dla przyspiszenia obliczen) */
-  FLOAT Amplitude;              /* Ostatina wartosc amplitudy */
-  FLOAT Phase;                  /* ---//-----//---- fazy */ 
-  UCHAR mode;
+typedef struct
+{
+	FLOAT CNorm;			/* Norma kosinusowa */
+	FLOAT SNorm;			/* Norma sinusowa */
+	FLOAT Fc;			/* Iloczyn kosinusowy z sygnalem */
+	FLOAT Fs;			/* Iloczyn sinusowy z sygnalem */
+	FLOAT Modulus;		/* Ostatina wartosc modulusa (dla przyspiszenia obliczen) */
+	FLOAT Amplitude;              /* Ostatina wartosc amplitudy */
+	FLOAT Phase;                  /* ---//-----//---- fazy */ 
+	UCHAR mode;
 } INFOATOM;
                                 /* Szybka metoda genracji iloczynow skalarnych */
                                 /* dla slownikow diadycznych */
@@ -90,6 +93,7 @@ static USHORT *Scale,*Translate,*Frequency; /* Parametry slownika */
 
 int StartDictionSize=STARTDICTION,Heuristic=ON,
     ROctave=ROCTAVE,RFreqency=RFREQ,RPosition=RPOSITION;  /* Parametry heurystyki */
+int FindChirp = ON;
 static double **OldAtomsTable;		/* Tablica maksymalnych atomow dla heurystyki */
                                 
 static int MakeFastMPDictionary(int);
@@ -259,45 +263,48 @@ int MakeMallatDictionary(int n,int OverSamp,int load)
  }
 
 void InicRandom1D(void)
- {
+{
     if(DiadicStructure==ON)		     /* Dla slownika diadycznego */
-     {
-       MaxScale=GetMaxScale(DimBase);
-       if(InicRand1D(OctaveDyst,MaxScale-1)==-1)
-         {
-           fprintf(stderr,"Problems with scales generator !\n");
-           exit(EXIT_FAILURE);
-         }
-     }
+	{
+		MaxScale=GetMaxScale(DimBase);
+		
+		if(InicRand1D(OctaveDyst,MaxScale-1)==-1)
+		{
+			fprintf(stderr,"Problems with scales generator !\n");
+			exit(EXIT_FAILURE);
+		}
+	}
     else if(InicRand1D(OctaveDyst,DimBase-2)==-1)
-     {
-       fprintf(stderr,"Problems with scales generator !\n");
-		 exit(EXIT_FAILURE);
-     }      
- }
+	{
+		fprintf(stderr,"Problems with scales generator !\n");
+		exit(EXIT_FAILURE);
+	}      
+}
 
 int InicRandom(int Srand)
- {
-    InicRandom1D();    
-    switch(RandomType) {                     /* Generatory funkcji 2D p-stwa */
-      case FUNCRND:
-	     if(CompileFunction()==-1)
-	      {
-		fprintf(stderr,"Incorrect form of probability density (CompileFunction) !\n");
-		exit(EXIT_FAILURE);
-	      }
-	     if(prn==ON)
-	       fprintf(stdout,"<<< INITIALIZING GENERATOR >>>\n");
-	     return InicGen2D(fval,DimBase,DimBase/2,Srand);
-      case NOFUNCRND:
-		default:
-	   if(Srand==OFF)
-	     SRAND(0U);        		      /* Dla powtarzlnosci generacji slownika */
-	   else SRAND((unsigned short)time(NULL));  /* Inicjacja losowa */
-	   break;
+{
+    InicRandom1D();
+    
+    switch(RandomType)
+	{                     /* Generatory funkcji 2D p-stwa */
+	case FUNCRND:
+		if(CompileFunction()==-1)
+		{
+			fprintf(stderr,"Incorrect form of probability density (CompileFunction) !\n");
+			exit(EXIT_FAILURE);
 		}
-   return 0;
- }
+		if(prn==ON)
+			fprintf(stdout,"<<< INITIALIZING GENERATOR >>>\n");
+		return InicGen2D(fval,DimBase,DimBase/2,Srand);
+	case NOFUNCRND:
+	default:
+		if(Srand==OFF)
+			SRAND(0U);        		      /* Dla powtarzlnosci generacji slownika */
+		else SRAND((unsigned short)time(NULL));  /* Inicjacja losowa */
+		break;
+	}
+	return 0;
+}
 
 void RandTimeAndFreq(int *Time,int *Freq,int RandOpc)
  { 		     /* Generacja pozycji atomu w przestrzeni czas-czestosc */
@@ -318,96 +325,99 @@ __inline
 #else
 static
 #endif
-void LoadBigAtom(BIGATOM *atom,const int DimBase,const int k)
- {
-   const double pi2=2.0*M_PI;		/* Ladowanie atomu */
 
-   if(DiadicStructure==OFF)
-     atom->scale=(int)Scale[k];
-   else 
+void LoadBigAtom(BIGATOM *atom,const int DimBase,const int k)
+{
+	const double pi2=2.0*M_PI;		/* Ladowanie atomu */
+	
+	if(DiadicStructure==OFF)
+		atom->scale=(int)Scale[k];
+	else 
     {
-      atom->iScale=(int)Scale[k];
-      atom->scale=1U << atom->iScale; 
+		atom->iScale=(int)Scale[k];
+		atom->scale=1U << atom->iScale; 
     }  
     
-   atom->trans=Translate[k];
-   atom->iFreq=Frequency[k];
-   atom->frequency=pi2*(double)(atom->iFreq)/(double)DimBase;
- }
+	atom->trans=Translate[k];
+	atom->iFreq=Frequency[k];
+	atom->frequency=pi2*(double)(atom->iFreq)/(double)DimBase;
+}
 
 static void CloseDictionary(void)
- {
-   if(Scale!=NULL)
-     free((void *)Scale);
+{
+	if(Scale!=NULL)
+		free((void *)Scale);
+	
 	if(Translate!=NULL)
-     free((void *)Translate);
-   if(Frequency!=NULL)
-     free((void *)Frequency);
- }        
+		free((void *)Translate);
+	
+	if(Frequency!=NULL)
+		free((void *)Frequency);
+}        
 
 #define SWAP(X,Y)  tmp=(X); (X)=(Y); (Y)=tmp 
 
 static int MakeDictionary(void)
- {
-   unsigned int Size;
-   int i,Time,Freq;
-   USHORT OldSeed,GetSeed(void);		/* Tworzenie stablicowanych */
-                                        	/* parametrow atomow */
-   if(prn==ON)
-     fprintf(stdout,"<<< GENERATING THE DICTIONARY >>>\n");
-   
-   if(MallatDiction==ON)			/* Zmiana wielkosci globalnej */
-     DictionSize=MakeMallatDictionary(DimBase,OverSampling,OFF);
-     
-   Size=DictionSize*sizeof(USHORT);
-   if((Scale=(USHORT *)malloc(Size))==NULL ||
-      (Translate=(USHORT *)malloc(Size))==NULL ||
-      (Frequency=(USHORT *)malloc(Size))==NULL)
-     {
-       CloseDictionary();
-       return -1;
-     }
-
-   if(MallatDiction==ON)
-     {
-       if(prn==ON)
-         fprintf(stdout,"<<< DYADIC DICTIONARY %d ATOMS >>>\n",
-		 DictionSize+(3*DimBase)/2);
-                 
-       (void)MakeMallatDictionary(DimBase,OverSampling,ON);
-       if(Heuristic==ON)
+{
+	unsigned int Size;
+	int i,Time,Freq;
+	USHORT OldSeed,GetSeed(void);		/* Tworzenie stablicowanych */
+	/* parametrow atomow */
+	if(prn==ON)
+		fprintf(stdout,"<<< GENERATING THE DICTIONARY >>>\n");
+	
+	if(MallatDiction==ON)			/* Zmiana wielkosci globalnej */
+		DictionSize=MakeMallatDictionary(DimBase,OverSampling,OFF);
+	
+	Size=DictionSize*sizeof(USHORT);
+	if((Scale=(USHORT *)malloc(Size))==NULL ||
+		(Translate=(USHORT *)malloc(Size))==NULL ||
+		(Frequency=(USHORT *)malloc(Size))==NULL)
+	{
+		CloseDictionary();
+		return -1;
+	}
+	
+	if(MallatDiction==ON)
+	{
+		if(prn==ON)
+			fprintf(stdout,"<<< DYADIC DICTIONARY %d ATOMS >>>\n",
+			DictionSize+(3*DimBase)/2);
+		
+		(void)MakeMallatDictionary(DimBase,OverSampling,ON);
+		if(Heuristic==ON)
         {
-          if(prn==ON)
-            fprintf(stdout,"<<< MIXING THE DICTIONARY >>>\n");
-        			                /* Na potrzeby heurystyki mieszamy */
-          for(i=0 ; i<DictionSize ; i++)        /* atomy */
+			if(prn==ON)
+				fprintf(stdout,"<<< MIXING THE DICTIONARY >>>\n");
+			/* Na potrzeby heurystyki mieszamy */
+			for(i=0 ; i<DictionSize ; i++)        /* atomy */
             {
-              register USHORT tmp;
-              const int k=(int)((double)rand()*DictionSize/(double)RAND_MAX);
-              
-	      SWAP(Scale[k],Scale[i]);
-              SWAP(Translate[k],Translate[i]);
-              SWAP(Frequency[k],Frequency[i]); 
+				register USHORT tmp;
+				const int k=(int)((double)rand()*DictionSize/(double)RAND_MAX);
+				
+				SWAP(Scale[k],Scale[i]);
+				SWAP(Translate[k],Translate[i]);
+				SWAP(Frequency[k],Frequency[i]); 
             }
         }
-       return 0;
-     }  
-  
-   OldSeed=GetSeed();				/* Slownik stochastyczny */
-   for(i=0 ; i<DictionSize ; i++)
+		return 0;
+	}  
+	
+	OldSeed=GetSeed();				/* Slownik stochastyczny */
+	for(i=0 ; i<DictionSize ; i++)
     {
-      int itmp;
-      
-      RandTimeAndFreq(&Time,&Freq,RandomType);
-      Rand1D(&itmp);
-      Scale[i]=(USHORT)(1+itmp);    
-      Translate[i]=(USHORT)Time;
-      Frequency[i]=(USHORT)Freq;
+		int itmp;
+		
+		RandTimeAndFreq(&Time,&Freq,RandomType);
+		Rand1D(&itmp);
+		Scale[i]=(USHORT)(1+itmp);    
+		Translate[i]=(USHORT)Time;
+		Frequency[i]=(USHORT)Freq;
     }
-
-  SRAND(OldSeed);
-  return 0;
- }       
+	
+	SRAND(OldSeed);
+	return 0;
+}       
  
 #undef SWAP
  
@@ -582,16 +592,24 @@ void PrintBigAtom(BIGATOM *atom)      /* Wydruk parametrow atomu na ekran */
           break;
     }
                      
-   fprintf(stdout,"  %10.7g  %3d  %3d  %8.6f  %8.6f  %s\n",
+   /*fprintf(stdout,"  %10.7g  %3d  %3d  %8.6f  %8.6f  %8.6f  %s\n",
            atom->modulus,(int)atom->scale,
-           (int)atom->trans,atom->frequency,atom->phase,name);
+           (int)atom->trans,atom->frequency,atom->phase, atom->chirpfactor,name);*/
+
+   fprintf(stdout,"  %10.7g  %3d  %8.6f  %8.6f  %8.6f  %8.6f  %s\n",
+           atom->modulus,(int)atom->scale,
+           atom->trans/SamplingRate,atom->frequency*SamplingRate/(2*M_PI),atom->phase, atom->chirpfactor*SamplingRate*SamplingRate,name);
+
    fflush(stdout);
  }
                 	/* Procedury numeryczne */
 
 static INFOATOM *InfoTable;            /* Inforamcje o iloczynach skalarnych */
 static double *GaborTab,*TmpExpTab;    /* Tablice pomocnicze */
-static double ConstScale;	       /* Zakres istotnosci atomu */
+
+// Efective range of a Gabor Atom
+/* Zakres istotnosci atomu */
+static double ConstScale;
 
 #ifdef __GNUC__
 __inline
@@ -599,11 +617,11 @@ __inline
 static
 #endif 
 int AtomLen(BIGATOM *atom,int DimBase)
- {
-   const int len=(int)(ConstScale*atom->scale);
-   
-   return (len>=DimBase) ? DimBase-1 : len;
- }    
+{
+	const int len=(int)(ConstScale*atom->scale);
+	
+	return (len>=DimBase) ? DimBase-1 : len;
+}    
 
 static void MakeExpTable(register double *ExpTab,double alpha,int trans,
                          register int start,register int stop)
@@ -859,32 +877,35 @@ double FindCrossAtomPhase(BIGATOM *atom1,BIGATOM *atom2,double *GaborTab,
  }                              
 
 static void MakeGaborAtom(double *GaborFunc,register int n,BIGATOM *atom)	      
- {
-   register int i;
-   const double ConstExp=exp(-M_PI/SQR((double)(atom->scale))),
-                ConstStep=SQR(ConstExp),
-                Ampli=atom->modulus/atom->amplitude,
-                AmpliCos=Ampli*cos(atom->phase),
-                AmpliSin=-Ampli*sin(atom->phase);
-   double *PtrGaborFunc=GaborFunc+atom->trans,
-          OldSin=0.0,OldCos=1.0,NewCos,OldExp=1.0,Factor=ConstExp,
-          dtmp1,dtmp2,Sin,Cos;             
-               
-   sincos(atom->frequency,&Sin,&Cos);            
-   *PtrGaborFunc=AmpliCos;		/* Generacja atomu Gabora */
-   for(i=1 ; i<n ; i++)
+{
+	register int i;
+	
+	const double ConstExp=exp(-M_PI/SQR((double)(atom->scale))),
+		ConstStep=SQR(ConstExp),
+		Ampli=atom->modulus/atom->amplitude,
+		AmpliCos=Ampli*cos(atom->phase),
+		AmpliSin=-Ampli*sin(atom->phase);
+	
+	double *PtrGaborFunc=GaborFunc+atom->trans,
+		OldSin=0.0,OldCos=1.0,NewCos,OldExp=1.0,Factor=ConstExp,
+		dtmp1,dtmp2,Sin,Cos;             
+	
+	sincos(atom->frequency,&Sin,&Cos);            
+	*PtrGaborFunc=AmpliCos;		/* Generacja atomu Gabora */
+	
+	for(i=1 ; i<n ; i++)
     {
-      NewCos=OldCos*Cos-OldSin*Sin;
-      OldSin=OldCos*Sin+OldSin*Cos;
-      OldCos=NewCos;
-      OldExp*=Factor;
-      Factor*=ConstStep;
-      dtmp1=AmpliCos*OldExp*OldCos;
-      dtmp2=AmpliSin*OldExp*OldSin;
-      *(PtrGaborFunc+i)=dtmp1+dtmp2;
-      *(PtrGaborFunc-i)=dtmp1-dtmp2;
+		NewCos=OldCos*Cos-OldSin*Sin;
+		OldSin=OldCos*Sin+OldSin*Cos;
+		OldCos=NewCos;
+		OldExp*=Factor;
+		Factor*=ConstStep;
+		dtmp1=AmpliCos*OldExp*OldCos;
+		dtmp2=AmpliSin*OldExp*OldSin;
+		*(PtrGaborFunc+i)=dtmp1+dtmp2;
+		*(PtrGaborFunc-i)=dtmp1-dtmp2;
     }
- }
+}
 
 static void MakeFourierAtom(double *sygnal,
                             register int n,BIGATOM *atom)	      
@@ -911,16 +932,17 @@ static void MakeFourierAtom(double *sygnal,
  }
 
 static void MakeMaximalAtom(double *GabTab,BIGATOM *atom,int DimBase)
-  {
-    switch(atom->typ) {  /* Generacja atomu (interface) */
-      case GABOR:
-                  MakeGaborAtom(GabTab+DimBase,AtomLen(atom,DimBase),atom);
-		  break;
-      case FOURIER:            
-		  MakeFourierAtom(GabTab+DimBase,DimBase,atom);
-                  break;
+{
+    switch(atom->typ)
+	{  /* Generacja atomu (interface) */
+	case GABOR:
+		MakeGaborAtom(GabTab+DimBase,AtomLen(atom,DimBase),atom);
+		break;
+	case FOURIER:            
+		MakeFourierAtom(GabTab+DimBase,DimBase,atom);
+		break;
     }      
- }
+}
       
 /* Wyznaczenie iloczynu skalarnego funkcji Gabora z sygnalem 
    z jednoczesnym wyznaczeniem optymalnej fazy */
@@ -931,91 +953,239 @@ __inline
 static
 #endif
 double FindGaborPhase(register double *f,int n,double alpha,
-		      double freq,double *phase,double *amplitude,
-		      INFOATOM *info)
- {
-   register int i;
-   double Sin,Cos;
-   register double dtmp,dtmp2;
-   const double ConstExp=exp(-alpha),ConstStep=SQR(ConstExp);
-   double OldSin=0.0,OldCos=1.0,NewCos,OldExp=1.0,
-          Factor=ConstExp,Ks=0.0,Kc=0.0,Fs=0.0,Fc=*f,Modulus;
+					  double freq,double *phase,double *amplitude,
+					  INFOATOM *info)
+{
+	register int i;
+	double Sin,Cos;
+	register double dtmp,dtmp2;
+	const double ConstExp=exp(-alpha),ConstStep=SQR(ConstExp);
+	double OldSin=0.0,OldCos=1.0,NewCos,OldExp=1.0,
+		Factor=ConstExp,Ks=0.0,Kc=0.0,Fs=0.0,Fc=*f,Modulus;
+	
+	sincos(freq,&Sin,&Cos);
+	
+	for(i=1 ; i<n ; i++)
+	{
+		// same trick from FindFourierPhase
+		NewCos=OldCos*Cos-OldSin*Sin;
+		OldSin=OldCos*Sin+OldSin*Cos;
+		OldCos=NewCos;
 
-   sincos(freq,&Sin,&Cos);
-   for(i=1 ; i<n ; i++)
-     {
-       NewCos=OldCos*Cos-OldSin*Sin;
-       OldSin=OldCos*Sin+OldSin*Cos;
-       OldExp*=Factor;
-       dtmp=OldExp*NewCos;
-       dtmp2=OldExp*OldSin;
-       Kc+=SQR(dtmp);
-       Ks+=SQR(dtmp2);
-       Fc+=dtmp*(*(f+i)+*(f-i));
-       Fs+=dtmp2*(*(f+i)-*(f-i));
-       Factor*=ConstStep;
-       OldCos=NewCos;
-     }    
+		// same that exp(-((double)i*i)*alpha);
+		OldExp*=Factor;
+		Factor*=ConstStep;
 
+		dtmp=OldExp*NewCos;
+		dtmp2=OldExp*OldSin;
+		
+		Kc+=SQR(dtmp);
+		Ks+=SQR(dtmp2);
+		
+		Fc+=dtmp*(*(f+i)+*(f-i));
+		Fs+=dtmp2*(*(f+i)-*(f-i));
+	}    
+	
     Kc=2.0*Kc+1.0;
     Ks*=2.0;
-    if(fabs(Fs)<1.0e-10 && fabs(Fc)<1.0e-10)
-      *phase=0.0;
+    
+	if(fabs(Fs)<1.0e-10 && fabs(Fc)<1.0e-10)
+		*phase=0.0;
     else
-      *phase=atan2(-Fs/Ks,Fc/Kc);
-    sincos(*phase,&OldSin,&OldCos);
-    Modulus=TSQR(Fc*OldCos-Fs*OldSin)/(*amplitude=
-	    (Kc*SQR(OldCos)+Ks*SQR(OldSin)));
+		*phase=atan2(-Fs/Ks,Fc/Kc);
+    
+	sincos(*phase,&OldSin,&OldCos);
 
+    Modulus=TSQR(Fc*OldCos-Fs*OldSin)/(*amplitude=
+		(Kc*SQR(OldCos)+Ks*SQR(OldSin)));
+	
     if(FastMode==ON)			/* Dla szybkiej metody */
-      {                          	/* inicjacja struktur danych */
-	info->Fs=Fs;
-	info->Fc=Fc;
-	info->CNorm=Kc;
-	info->SNorm=Ks;
-	info->Modulus=Modulus;
-	info->Amplitude=*amplitude;
-	info->Phase=*phase;
-      }
+	{                          	/* inicjacja struktur danych */
+		info->Fs=Fs;
+		info->Fc=Fc;
+		info->CNorm=Kc;
+		info->SNorm=Ks;
+		info->Modulus=Modulus;
+		info->Amplitude=*amplitude;
+		info->Phase=*phase;
+	}
     
     return Modulus;             
- }
+}
+
+#ifdef MULTITHREAD
+__inline
+#else
+static
+#endif
+double FindGaborChirp(register double *f,int n,double alpha,
+					  double freq, double *puremodule, double *outphase, double *outamp)
+{
+	register int i, j;
+	double chirpfactor = 0.0, bestchirp = 0.0;
+	double SinPos, CosPos, SinNeg, CosNeg;
+	// double Sin,Cos;
+	register double dtmp,dtmp2, dtmp3, dtmp4;
+	const double ConstExp=exp(-alpha),ConstStep=SQR(ConstExp);
+	double OldExp=1.0,
+		Factor=ConstExp,Ks=0.0,Kc=0.0,Modulus;
+	double FsPos=0.0,FcPos=*f, FsNeg=0.0, FcNeg = *f;
+	double dchirp;
+	int citer = n;
+	double reali;
+	double phase, amplitude;
+
+	dchirp = 4.0*freq/(((double)citer)*((double)n));
+		
+	// sincos(freq,&Sin,&Cos);
+	for(j = 1; j < (citer + 1); j++)
+	{
+		FsPos=0.0;
+		FcPos=*f;
+		FsNeg=0.0;
+		FcNeg = *f;
+		OldExp=1.0;
+		Factor=ConstExp;
+		Ks=0.0;
+		Kc=0.0;
+		chirpfactor = ((double)j)*dchirp;
+
+		for(i=1 ; i<n ; i++)
+		{
+			// same trick from FindFourierPhase
+			// NewCos=OldCos*Cos-OldSin*Sin;
+			// OldSin=OldCos*Sin+OldSin*Cos;
+			// OldCos=NewCos;
+			reali = (double)i;
+
+			SinPos = sin(reali*(freq + reali*chirpfactor));
+			CosPos = cos(reali*(freq + reali*chirpfactor));
+			SinNeg = sin(-reali*(freq - reali*chirpfactor));
+			CosNeg = cos(-reali*(freq - reali*chirpfactor));
+
+			// same that exp(-((double)i*i)*alpha);
+			OldExp*=Factor;
+			Factor*=ConstStep;
+
+			dtmp=OldExp*CosPos;
+			dtmp2=OldExp*SinPos;
+			dtmp3=OldExp*CosNeg;
+			dtmp4=OldExp*SinNeg;
+			
+			// Kc+=SQR(dtmp);
+			// Ks+=SQR(dtmp2);
+			Kc+= SQR(dtmp) + SQR(dtmp3);
+			Ks+= SQR(dtmp2) + SQR(dtmp4);
+			
+			FcPos+=dtmp*(*(f+i)) + dtmp3*(*(f-i));
+			FcNeg+=dtmp*(*(f-i)) + dtmp3*(*(f+i));
+			FsPos+=dtmp2*(*(f+i)) + dtmp4*(*(f-i));
+			FsNeg+=-dtmp2*(*(f-i)) + -dtmp4*(*(f+i));
+		}
+
+		Kc+=1.0;
+		// Kc=2.0*Kc+1.0;
+		// Ks*=2.0;
+
+		// this is just to compare with puremodule
+		if(fabs(FcPos)<1.0e-10 && fabs(FsPos)<1.0e-10)
+			phase=0.0;
+		else
+			phase=atan2(-FsPos/Ks,FcPos/Kc);
+    
+		sincos(phase,&SinPos,&CosPos);
+
+		amplitude = Kc*SQR(CosPos)+Ks*SQR(SinPos);
+
+		Modulus=TSQR(FcPos*CosPos-FsPos*SinPos)/(amplitude);
+
+		// if((SQR(FcPos) + SQR(FsPos)) > bestmodulus)
+		if(Modulus > *puremodule)
+		{
+			*puremodule = Modulus;
+			*outphase = phase;
+			*outamp = amplitude;
+			bestchirp = chirpfactor;
+		}
+
+		if(fabs(FcNeg)<1.0e-10 && fabs(FsNeg)<1.0e-10)
+			phase=0.0;
+		else
+			phase=atan2(-FsNeg/Ks,FcNeg/Kc);
+    
+		sincos(phase,&SinNeg,&CosNeg);
+
+		amplitude = Kc*SQR(CosNeg)+Ks*SQR(SinNeg);
+
+		Modulus=TSQR(FcNeg*CosNeg-FsNeg*SinNeg)/(amplitude);
+
+		// if((SQR(FcNeg) + SQR(FsNeg)) > bestmodulus)
+		if(Modulus > *puremodule)
+		{
+			*puremodule = Modulus;
+			*outphase = phase;
+			*outamp = amplitude;
+			bestchirp = -chirpfactor;
+		}
+	}
+	
+    // Kc=2.0*Kc+1.0;
+    // Ks*=2.0;
+    
+	return bestchirp;
+}
   
 /* Iloczyn cosinusa z sygnalem residualnym 
    z jednoczesnym wyznaczeniem fazy */  
   
 static double FindFourierPhase(register double *f,double freq,register int n,
                                double *phase,double *amplitude)                        
- {   
-   register int i;
-   double Sin,Cos;
-   double OldSin=0.0,OldCos=1.0,NewCos,
-          Ks=0.0,Kc=0.0,Fs=0.0,Fc=*f;
-          
-   sincos(freq,&Sin,&Cos);
-   for(i=1 ; i<n ; i++)
-     {
-       NewCos=OldCos*Cos-OldSin*Sin;
-       OldSin=OldCos*Sin+OldSin*Cos;
-       OldCos=NewCos;
-       Kc+=SQR(NewCos);
-       Ks+=SQR(OldSin);
-       Fc+=NewCos*(*(f+i)+*(f-i));
-       Fs+=OldSin*(*(f+i)-*(f-i));
-     }    
+{   
+	register int i;
+	double Sin,Cos;
+	double OldSin=0.0,OldCos=1.0,NewCos,
+		Ks=0.0,Kc=0.0,Fs=0.0,Fc=*f;
+	
+	sincos(freq,&Sin,&Cos);
+
+	for(i=1 ; i<n ; i++)
+	{
+		// this step is tricky!
+		// it's like rotating a normalized vector
+		// around z axis with angle freq!
+		// nice iterating to find actual values of sin(i*freq) an cos(i*freq)
+		NewCos=OldCos*Cos-OldSin*Sin;
+		OldSin=OldCos*Sin+OldSin*Cos;
+		OldCos=NewCos;
+
+		Kc+=SQR(OldCos);
+		Ks+=SQR(OldSin);
+
+		// this will find the inner product of the signal and the
+		// sin and cossine of frequency 'freq' (this is not the true frequency,
+		// it's like sampling rate was 1Hz)
+		// note we are using parity of sin and cossine here, in relation
+		// of the center of the sygnal
+		Fc+=OldCos*(*(f+i)+*(f-i));
+		Fs+=OldSin*(*(f+i)-*(f-i));
+	}    
     
-   Kc=2.0*Kc+1.0;
-   Ks*=2.0;
-   
-   if(fabs(Fs)<1.0e-10 && fabs(Fc)<1.0e-10)
-     *phase=0.0;
-   else
-     *phase=atan2(-Fs/Ks,Fc/Kc);
-   
-   sincos(*phase,&OldSin,&OldCos);
-   return TSQR(Fc*OldCos-Fs*OldSin)/(*amplitude=
-	      (Kc*SQR(OldCos)+Ks*SQR(OldSin)));
- }
+	// this will typically result Kc ~= Ks ~= n
+	// ~= -> approximately 
+	Kc=2.0*Kc+1.0;
+	Ks*=2.0;
+	
+	// in case of null signal (or orhogonal?)
+	if(fabs(Fs)<1.0e-10 && fabs(Fc)<1.0e-10)
+		*phase=0.0;
+	else
+		*phase=atan2(-Fs/Ks,Fc/Kc);
+	
+	sincos(*phase,&OldSin,&OldCos);
+
+	return TSQR(Fc*OldCos-Fs*OldSin)/(*amplitude=
+		(Kc*SQR(OldCos)+Ks*SQR(OldSin)));
+}
 
 /* Poszukiwanie atomu w slowniku */
 
@@ -1038,383 +1208,486 @@ static void UpDate(double *sygnal,int DimBase,INFOATOM *info,BIGATOM *atom)
 /* 2000-01-05 */
 
 int debug=0;
-static void find(float a[],int n,int k) {
-  register int l=0,p=n-1,i,j;	
-  float x,w;
-  
-  while(l<p) {
-    x=a[k]; i=l; j=p;
-    do {
-      while(a[i]>x) i++;
-      while(x>a[j]) j--;
-      if(i<=j) {
-	w=a[i]; 
-	a[i]=a[j]; 
-	a[j]=w;
-	i++; 
-	j--;
-      }
-    } while(i<=j);
-    if(j<k) l=i;
-    if(k<i) p=j;
-  }
+
+static void find(float a[],int n,int k)
+{
+	register int l=0,p=n-1,i,j;	
+	float x,w;
+	
+	while(l<p)
+	{
+		x=a[k]; 
+		i=l; 
+		j=p;
+		
+		do
+		{
+			while(a[i]>x)
+				i++;
+			
+			while(x>a[j])
+				j--;
+			
+			if(i<=j)
+			{
+				w=a[i]; 
+				a[i]=a[j]; 
+				a[j]=w;
+				i++; 
+				j--;
+			}
+		}
+		while(i<=j);
+		
+		if(j<k)
+		{
+			l=i;
+		}
+		
+		if(k<i)
+		{
+			p=j;
+		}
+	}
 }
 
-static float findmin(float a[],int k,int n) {
-  register int i;
-  float min;
+static float findmin(float a[],int k,int n)
+{
+	register int i;
+	float min;
+	
+	find(a,n,k);
 
-  find(a,n,k);
-  for(i=0,min=a[0] ; i<k ; i++)
-    if(min>a[i])
-      min=a[i];
-  return min;
+	for(i=0,min=a[0] ; i<k ; i++)
+	{
+		if(min>a[i])
+		{
+			min=a[i];
+		}
+	}
+	
+	return min;
 }
 
-static void MakeAdaptiveDictionary(void) {
-  float Const,*mod;
-  register int i,k;
-
-  if(prn==1)
-    fprintf(stdout,"<<< MAKEING ADAPTIVE DICTIONARY >>>\n");
-
-  if(debug==1) {
-    FILE *file;
-    if(prn==1) 
-      fprintf(stdout,"<<< SAVEING MODULUS >>>\n");
-    if((file=fopen("debug.dat","wt"))!=NULL) {
-      for(i=0 ; i<DictionSize ; i++)
-	fprintf(file,"%g\n",InfoTable[i].Modulus);
-      fclose(file);
-    }
-  }
-  
-  if(fabs(AdaptiveConst-1.0)<1.0e-8) {
-    for(i=0 ; i<DictionSize ; i++) 
-      InfoTable[i].mode=1;
-    return;
-  }
-
-  if((mod=(float *)malloc(DictionSize*sizeof(float)))==NULL) {
-    fprintf(stderr,"malloc error: %s %d\n",__FILE__,__LINE__);
-    exit(EXIT_FAILURE);
-  }
- 
-  for(i=0 ; i<DictionSize ; i++) 
-    mod[i]=InfoTable[i].Modulus;
- 
-  Const=findmin(mod,(int)((1.0-AdaptiveConst)*DictionSize),DictionSize);
-  free((void *)mod);
-
-  for(i=0,k=0 ; i<DictionSize ; i++)
-    if(InfoTable[i].Modulus>=Const) {
-      InfoTable[i].mode=1;
-      k++;
-    } else {
-      InfoTable[i].mode=0;
-    }
-
-  if(prn==1) {
-    fprintf(stdout,"<<< MODULUS TRESHOLD: %g >>>\n",Const);
-    fprintf(stdout,"<<< NEW DICTINARY SIZE: %d (%6.3fx) >>>\n",k,
-	    (float)DictionSize/k);
-  }
+static void MakeAdaptiveDictionary(void)
+{
+	float Const,*mod;
+	register int i,k;
+	
+	if(prn==1)
+		fprintf(stdout,"<<< MAKEING ADAPTIVE DICTIONARY >>>\n");
+	
+	if(debug==1)
+	{
+		FILE *file;
+		if(prn==1) 
+			fprintf(stdout,"<<< SAVEING MODULUS >>>\n");
+		
+		if((file=fopen("debug.dat","wt"))!=NULL)
+		{
+			for(i=0 ; i<DictionSize ; i++)
+				fprintf(file,"%g\n",InfoTable[i].Modulus);
+			
+			fclose(file);
+		}
+	}
+	
+	if(fabs(AdaptiveConst-1.0)<1.0e-8)
+	{
+		for(i=0 ; i<DictionSize ; i++) 
+			InfoTable[i].mode=1;
+		return;
+	}
+	
+	if((mod=(float *)malloc(DictionSize*sizeof(float)))==NULL)
+	{
+		fprintf(stderr,"malloc error: %s %d\n",__FILE__,__LINE__);
+		exit(EXIT_FAILURE);
+	}
+	
+	for(i=0 ; i<DictionSize ; i++) 
+		mod[i]=InfoTable[i].Modulus;
+	
+	Const=findmin(mod,(int)((1.0-AdaptiveConst)*DictionSize),DictionSize);
+	free((void *)mod);
+	
+	for(i=0,k=0 ; i<DictionSize ; i++)
+	{
+		if(InfoTable[i].Modulus>=Const)
+		{
+			InfoTable[i].mode=1;
+			k++;
+		}
+		else
+		{
+			InfoTable[i].mode=0;
+		}
+	}
+		
+	if(prn==1)
+	{
+		fprintf(stdout,"<<< MODULUS TRESHOLD: %g >>>\n",Const);
+		fprintf(stdout,"<<< NEW DICTINARY SIZE: %d (%6.3fx) >>>\n",k,
+			(float)DictionSize/k);
+	}
 }
 
 static int GetMaxScale(int DimBase)     /* Liczba skala dla diadycznych */
- {
-   return (int)(0.5+log((double)DimBase)/M_LN2);
- }   
+{
+	return (int)(0.5+log((double)DimBase)/M_LN2);
+}   
 
 #ifndef MULTITHREAD
 
 static void FindBigAtom(double *sygnal,int DimBase,BIGATOM *maxatom,
-                        int CurIter,int prntime,int Reinit)
- {
-   const int MaxFreq=DimBase/2;
-   const double df=M_PI/(double)MaxFreq; 
-   int MaxOctave=GetMaxScale(DimBase);
-   register double max,tmp;
-   static BIGATOM OldMaxAtom;
-   BIGATOM atom;
-   register int i,k,itmp;
-   int iScaleMin,iScaleMax,iFreqMin,iFreqMax,iPosMin,iPosMax;   
-   
-   max=SQR(sygnal[0]);			/* Baza Diraka */
-   maxatom->typ=DIRAK;
-   maxatom->modulus=sygnal[0];
-   maxatom->amplitude=1.0;
-   maxatom->phase=0.0;
-   maxatom->frequency=0.5*M_PI;
-   maxatom->trans=0;
-   maxatom->scale=0;
-   
-   for(i=1 ; i<DimBase ; i++)		
-    if((tmp=SQR(sygnal[i]))>max)
-      {
-	max=tmp;
-	maxatom->modulus=sygnal[i];
-        maxatom->trans=i;
-      }
-        
-   atom.typ=FOURIER;			/* Baza Fouriera */
-   atom.trans=MaxFreq;
-   atom.scale=DimBase;
+						int CurIter,int prntime,int Reinit)
+{
+	const int MaxFreq=DimBase/2;
+	const double df=M_PI/(double)MaxFreq; 
+	int MaxOctave=GetMaxScale(DimBase);
+	register double max,tmp;
+	static BIGATOM OldMaxAtom;
+	BIGATOM atom;
+	register int i,k,itmp;
+	int iScaleMin,iScaleMax,iFreqMin,iFreqMax,iPosMin,iPosMax;   
+	
+	// find the best DIRAC atom {{
+	max=SQR(sygnal[0]);			/* Baza Diraka */
+	maxatom->typ=DIRAK;
+	maxatom->modulus=sygnal[0];
+	maxatom->amplitude=1.0;
+	maxatom->phase=0.0;
+	maxatom->frequency=0.5*M_PI;
+	maxatom->chirpfactor = 0.0;
+	maxatom->trans=0;
+	maxatom->scale=0;
+		
+	for(i=1 ; i<DimBase ; i++)
+	{
+		if((tmp=SQR(sygnal[i]))>max)
+		{
+			max=tmp;
+			maxatom->modulus=sygnal[i];
+			maxatom->trans=i;
+		}
+	}
 
-   for(i=1 ; i<MaxFreq ; i++)		
-    {
-     atom.modulus=FindFourierPhase(sygnal+MaxFreq,
-              atom.frequency=df*(double)i,DimBase,
-              &atom.phase,&atom.amplitude); 
-              
-     atom.iFreq=i;           
-     if(atom.modulus>max)
-       {
-	 max=atom.modulus;
-	 (void)memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
-       }
-    }              
-         
-   atom.typ=GABOR;      
-   if(CurIter==0 || FastMode==OFF || Reinit==ON)
-     {
+	// }} find the best DIRAC atom
+	
+	// find the best FOURIER atom {{
+	atom.typ=FOURIER;			/* Baza Fouriera */
+	atom.trans=MaxFreq;
+	atom.scale=DimBase;
+	atom.chirpfactor = 0.0;
+	
+	for(i=1 ; i<MaxFreq ; i++)		
+	{
+		atom.modulus=FindFourierPhase(sygnal+MaxFreq,
+			atom.frequency=df*(double)i,DimBase,
+			&atom.phase,&atom.amplitude); 
+		
+		atom.iFreq=i;
+		
+		if(atom.modulus>max)
+		{
+			max=atom.modulus;
+			(void)memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
+		}
+	}              
+
+	// }} find the best FOURIER atom
+	
+	atom.typ=GABOR;      
+	
+	if(CurIter==0 || FastMode==OFF || Reinit==ON)
+	{
 #ifndef WINDOWSGNU
-       clock_t t1=0L,t2;
-       
-       if(FastMode==ON && prn==ON)
-	 t1=clock();
+		clock_t t1=0L,t2;
+		
+		if(FastMode==ON && prn==ON)
+			t1=clock();
 #endif
+		
+		for(i=0 ; i<StartDictionSize ; i++) /* Atomy Gabora */
+		{
+			LoadBigAtom(&atom,DimBase,i);
+			
+			atom.modulus=FindGaborPhase(sygnal+atom.trans,AtomLen(&atom,DimBase),
+				M_PI/SQR((double)atom.scale),atom.frequency,
+				&atom.phase,&atom.amplitude,&InfoTable[i]);
+			
+			if(atom.modulus>max)
+			{
+				max=atom.modulus;
+				(void)memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
+			}
+		}
+		
+		MakeAdaptiveDictionary();
+		
+		if(maxatom->typ==GABOR && Heuristic==ON)    /* Ustalenie zakresu poszukiwan */
+		{                                  	/* zakres poczatkowy */
+			iScaleMin=maxatom->iScale-ROctave;
+			
+			if(iScaleMin<0) 
+				iScaleMin=0; 
+			
+			iScaleMax=maxatom->iScale+ROctave;
+			
+			if(iScaleMax>MaxOctave)
+				iScaleMax=MaxOctave;
+			
+			iPosMin=maxatom->trans-RPosition;
+			
+			if(iPosMin<0)
+				iPosMin=0; 
+			
+			iPosMax=maxatom->trans+RPosition;
+			
+			if(iPosMax>=DimBase)
+				iPosMax=DimBase-1;
+			
+			iFreqMin=maxatom->iFreq-RFreqency;
+			
+			if(iFreqMin<=0)
+				iFreqMin=1;
+			
+			iFreqMax=maxatom->iFreq+RFreqency;
+			
+			itmp=DimBase >> 1;
+			
+			if(iFreqMax>=itmp)
+				iFreqMax=itmp;
+			
+			for(i=StartDictionSize ; i<DictionSize ; i++)
+			{
+				LoadBigAtom(&atom,DimBase,i);		/* Poszukujemy atomow z otoczenia maksimum */
+				
+				if(atom.iScale>=iScaleMin && atom.iScale<=iScaleMax)
+				{
+					if(atom.iFreq>=iFreqMin  && atom.iFreq<=iFreqMax)
+					{
+						if(atom.trans>=iPosMin  && atom.trans<=iPosMax)
+						{
+							atom.modulus=FindGaborPhase(sygnal+atom.trans,
+								AtomLen(&atom,DimBase),
+								M_PI/SQR((double)atom.scale),
+								atom.frequency,
+								&atom.phase,&atom.amplitude,
+								&InfoTable[i]);
+							
+							if(atom.modulus>max)
+							{
+								max=atom.modulus;
+								memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
+								
+								iScaleMin = maxatom->iScale - ROctave; /* Ustalenie nowego */
+								if(iScaleMin<0) 		    /* zakresu poszukiwan */
+									iScaleMin=0;
+								
+								iScaleMax = maxatom->iScale + ROctave;
+								if(iScaleMax>MaxOctave)
+									iScaleMax=MaxOctave;
+								
+								iPosMin = maxatom->trans - RPosition;
+								if(iPosMin<0)
+									iPosMin=0;
+								
+								iPosMax = maxatom->trans + RPosition;
+								if(iPosMax>=DimBase)
+									iPosMax=DimBase-1;
+								
+								iFreqMin = maxatom->iFreq - RFreqency;
+								if(iFreqMin<=0)
+									iFreqMin=1;
+								
+								iFreqMax=maxatom->iFreq+RFreqency;
+								itmp=DimBase >> 1;
+								if(iFreqMax>=itmp)
+									iFreqMax=itmp;
+							}
+						}  
+					}
+				}
+			}
+		}
 
-       for(i=0 ; i<StartDictionSize ; i++) /* Atomy Gabora */
-	 {
-	   LoadBigAtom(&atom,DimBase,i);
-	   atom.modulus=FindGaborPhase(sygnal+atom.trans,AtomLen(&atom,DimBase),
-				       M_PI/SQR((double)atom.scale),atom.frequency,
-				       &atom.phase,&atom.amplitude,&InfoTable[i]);
-	   
-	   if(atom.modulus>max)
-	     {
-	       max=atom.modulus;
-	       (void)memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
-	     }
-	 }
-
-       MakeAdaptiveDictionary();      
-       if(maxatom->typ==GABOR && Heuristic==ON)    /* Ustalenie zakresu poszukiwan */
-	 {                                  	/* zakres poczatkowy */
-	   iScaleMin=maxatom->iScale-ROctave;
-	   if(iScaleMin<0) 
-	     iScaleMin=0; 
-	   
-	   iScaleMax=maxatom->iScale+ROctave;
-	   if(iScaleMax>MaxOctave)
-	     iScaleMax=MaxOctave;
-	   
-	   iPosMin=maxatom->trans-RPosition;
-	   if(iPosMin<0)
-	     iPosMin=0; 
-	   
-	   iPosMax=maxatom->trans+RPosition;
-	   if(iPosMax>=DimBase)
-	     iPosMax=DimBase-1;
-      
-	   iFreqMin=maxatom->iFreq-RFreqency;
-	   if(iFreqMin<=0)
-	     iFreqMin=1;
-
-	   iFreqMax=maxatom->iFreq+RFreqency;
-	   itmp=DimBase >> 1;
-	   if(iFreqMax>=itmp)
-	     iFreqMax=itmp;
-	   
-	   for(i=StartDictionSize ; i<DictionSize ; i++) {
-	       LoadBigAtom(&atom,DimBase,i);		/* Poszukujemy atomow z otoczenia maksimum */
-	       if(atom.iScale>=iScaleMin && atom.iScale<=iScaleMax)
-		 if(atom.iFreq>=iFreqMin  && atom.iFreq<=iFreqMax)
-		   if(atom.trans>=iPosMin  && atom.trans<=iPosMax)
-		     {
-		       atom.modulus=FindGaborPhase(sygnal+atom.trans,
-						   AtomLen(&atom,DimBase),
-						   M_PI/SQR((double)atom.scale),
-						   atom.frequency,
-						   &atom.phase,&atom.amplitude,
-						   &InfoTable[i]);
-
-		       if(atom.modulus>max)
-			 {
-			   max=atom.modulus;
-			   memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
-			   
-			   iScaleMin=maxatom->iScale-ROctave; /* Ustalenie nowego */
-			   if(iScaleMin<0) 		    /* zakresu poszukiwan */
-			     iScaleMin=0;
-			   
-			   iScaleMax=maxatom->iScale+ROctave;
-			   if(iScaleMax>MaxOctave)
-			     iScaleMax=MaxOctave;
-			   
-			   iPosMin=maxatom->trans-RPosition;
-			   if(iPosMin<0)
-			     iPosMin=0;
-			   
-			   iPosMax=maxatom->trans+RPosition;
-			   if(iPosMax>=DimBase)
-			     iPosMax=DimBase-1;
-			   
-			   iFreqMin=maxatom->iFreq-RFreqency;
-			   if(iFreqMin<=0)
-			     iFreqMin=1;
-			   
-			   iFreqMax=maxatom->iFreq+RFreqency;
-			   itmp=DimBase >> 1;
-			   if(iFreqMax>=itmp)
-			     iFreqMax=itmp;
-			 }
-		     }  
-	     }
-	 }
-      
+		// em fase de testes: CHIRP
+		if(FindChirp && (maxatom->typ == GABOR))
+		{
+			maxatom->chirpfactor = FindGaborChirp(sygnal + maxatom->trans, AtomLen(maxatom,DimBase),
+				M_PI/SQR((double)maxatom->scale), maxatom->frequency, &maxatom->modulus, 
+				&maxatom->phase, &maxatom->amplitude);
+		}
+		
 #ifndef WINDOWSGNU
-       if(FastMode==ON && prn==ON && prntime==PRNTIME)
-	 {
-         double Tcomp;
-         char napis[STRING]="";
-         
-         t2=clock();
-	 FirstIterTime=Tcomp=(double)(t2-t1)/(double)CLOCKS_PER_SEC;
-	 
-	 if(Tcomp!=0)
-           sprintf(napis,"%5.0f atoms/sec ",
-		   (double)(DictionSize+(3*DimBase)/2)/(double)Tcomp);
-         fprintf(stdout,"<<< FIRST ITERATION : %g sec"
-		 " (%.0f min %.2f sek) %s>>>\n",
-		 Tcomp,floor(Tcomp/60.0),
-		 Tcomp-60.0*floor(Tcomp/60.0),napis);
-	 }
+		if(FastMode==ON && prn==ON && prntime==PRNTIME)
+		{
+			double Tcomp;
+			char napis[STRING]="";
+			
+			t2=clock();
+			FirstIterTime=Tcomp=(double)(t2-t1)/(double)CLOCKS_PER_SEC;
+			
+			if(Tcomp!=0)
+			{
+				sprintf(napis,"%5.0f atoms/sec ",
+					(double)(DictionSize+(3*DimBase)/2)/(double)Tcomp);
+			}
+			
+			fprintf(stdout,"<<< FIRST ITERATION : %g sec"
+				" (%.0f min %.2f sek) %s>>>\n",
+				Tcomp,floor(Tcomp/60.0),
+				Tcomp-60.0*floor(Tcomp/60.0),napis);
+		}
 #endif
-       if(prn==ON) {
-	 fprintf(stdout,"ITER. ENERG[%%]    MODULUS  SCALE POS"
-		 "    FREQ     PHASE    TYPE\n");
-       }
-     }
-   else
-     {
-       const int Nmax=3*DimBase;
-       double Factor,temp;
+		if(prn==ON)
+		{
+			fprintf(stdout,"ITER. ENERG[%%]    MODULUS  SCALE POS"
+				"    FREQ     PHASE    TYPE\n");
+		}
+	}
+	else
+	{
+		const int Nmax=3*DimBase;
+		double Factor,temp;
+		
+		for(i=0 ; i<Nmax ; i++)
+			GaborTab[i]=0.0;
+		
+		MakeMaximalAtom(GaborTab,&OldMaxAtom,DimBase);
+		
+		if(Heuristic==ON)
+		{
+			for(i=0 ; i<Nmax ; i++)
+			{
+				OldAtomsTable[CurIter][i]=GaborTab[i];
+			}
+		}
+		
+		temp=-OldMaxAtom.frequency*OldMaxAtom.trans+OldMaxAtom.phase;
+		Factor=OldMaxAtom.modulus/OldMaxAtom.amplitude;
+		
+		for(i=0 ; i<StartDictionSize ; i++)	/* Atomy Gabora */
+		{
+			if(InfoTable[i].mode)
+			{
+				LoadBigAtom(&atom,DimBase,i);
+				atom.modulus=FindCrossAtomPhase(&OldMaxAtom,&atom,GaborTab,
+					TmpExpTab,DimBase,&InfoTable[i],&atom.phase,
+					&atom.amplitude,temp,Factor);
+				
+				if(atom.modulus>max)
+				{
+					max=atom.modulus;
+					(void)memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
+				}
+			}
+		}
+		
+		if(maxatom->typ==GABOR && Heuristic==ON)   /* Ustalenie zakresu poszukiwan */
+		{
+			iScaleMin=maxatom->iScale-ROctave;
+			if(iScaleMin<0)
+				iScaleMin=0;
+			
+			iScaleMax=maxatom->iScale+ROctave;
+			if(iScaleMax>MaxOctave)
+				iScaleMax=MaxOctave;
+			
+			iPosMin=maxatom->trans-RPosition;
+			if(iPosMin<0)
+				iPosMin=0;
+			
+			iPosMax=maxatom->trans+RPosition;
+			if(iPosMax>=DimBase)
+				iPosMax=DimBase-1;
+			
+			iFreqMin=maxatom->iFreq-RFreqency;
+			if(iFreqMin<=0)
+				iFreqMin=1;
+			
+			iFreqMax=maxatom->iFreq+RFreqency;
+			itmp=DimBase >> 1;
+			if(iFreqMax>=itmp)
+				iFreqMax=itmp;
+			
+			for(i=StartDictionSize,k=0 ; i<DictionSize ; i++,k++)
+			{
+				LoadBigAtom(&atom,DimBase,i);  /* Przegladane sa tylko atomy z otoczenia maksimum */
+				
+				if(atom.iScale>=iScaleMin && atom.iScale<=iScaleMax)
+				{
+					if(atom.iFreq>=iFreqMin  && atom.iFreq<=iFreqMax)
+					{
+						if(atom.trans>=iPosMin  && atom.trans<=iPosMax)
+						{
+							UpDate(sygnal,DimBase,&InfoTable[i],&atom);
+							if(atom.modulus>max)
+							{
+								max=atom.modulus;
+								memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
+								
+								iScaleMin=maxatom->iScale-ROctave;
+								if(iScaleMin<0)
+									iScaleMin=0;
+								
+								iScaleMax=maxatom->iScale+ROctave;
+								if(iScaleMax>MaxOctave)
+									iScaleMax=MaxOctave;  
+								
+								iPosMin=maxatom->trans-RPosition;
+								if(iPosMin<0)
+									iPosMin=0;
+								
+								iPosMax=maxatom->trans+RPosition;
+								if(iPosMax>=DimBase)
+									iPosMax=DimBase-1;
+								
+								iFreqMin=maxatom->iFreq-RFreqency;
+								if(iFreqMin<=0)
+									iFreqMin=1;
+								
+								iFreqMax=maxatom->iFreq+RFreqency;
+								itmp=DimBase >> 1;
+								if(iFreqMax>=itmp)
+									iFreqMax=itmp;
+							}  
+						}
+					}
+				}
+			}
+		}
 
-       for(i=0 ; i<Nmax ; i++)
-	 GaborTab[i]=0.0;
+		// em fase de testes: CHIRP
+		if(FindChirp && (maxatom->typ == GABOR))
+		{
+			maxatom->chirpfactor = FindGaborChirp(sygnal + maxatom->trans, AtomLen(maxatom,DimBase),
+				M_PI/SQR((double)maxatom->scale), maxatom->frequency, &maxatom->modulus, 
+				&maxatom->phase, &maxatom->amplitude);
+		}
+	}
 
-       MakeMaximalAtom(GaborTab,&OldMaxAtom,DimBase);
-       if(Heuristic==ON)
-	 for(i=0 ; i<Nmax ; i++)
-	   OldAtomsTable[CurIter][i]=GaborTab[i];
-       
-       temp=-OldMaxAtom.frequency*OldMaxAtom.trans+OldMaxAtom.phase;
-       Factor=OldMaxAtom.modulus/OldMaxAtom.amplitude;
-       
-       for(i=0 ; i<StartDictionSize ; i++)	/* Atomy Gabora */
-	 if(InfoTable[i].mode) {
-	   LoadBigAtom(&atom,DimBase,i);
-	   atom.modulus=FindCrossAtomPhase(&OldMaxAtom,&atom,GaborTab,
-					   TmpExpTab,DimBase,&InfoTable[i],&atom.phase,
-					   &atom.amplitude,temp,Factor);
-	   
-	   if(atom.modulus>max) {
-	     max=atom.modulus;
-	     (void)memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
-	   }
-	 }
-       
-       if(maxatom->typ==GABOR && Heuristic==ON)   /* Ustalenie zakresu poszukiwan */
-	 {
-	   iScaleMin=maxatom->iScale-ROctave;
-	   if(iScaleMin<0)
-	     iScaleMin=0;
+	if(maxatom->typ!=DIRAK)         /* Sprawdzamy kwadraty modulusa */
+	{
+		maxatom->modulus=sqrt(maxatom->modulus);
+		maxatom->amplitude=sqrt(maxatom->amplitude);  
+	}         
+	
+	memcpy((void *)&OldMaxAtom,(void *)maxatom,sizeof(BIGATOM));
 
-	   iScaleMax=maxatom->iScale+ROctave;
-	   if(iScaleMax>MaxOctave)
-	     iScaleMax=MaxOctave;
-
-	   iPosMin=maxatom->trans-RPosition;
-	   if(iPosMin<0)
-	     iPosMin=0;
-	   
-	   iPosMax=maxatom->trans+RPosition;
-	   if(iPosMax>=DimBase)
-	     iPosMax=DimBase-1;
-	   
-	   iFreqMin=maxatom->iFreq-RFreqency;
-	   if(iFreqMin<=0)
-	     iFreqMin=1;
-	   
-	   iFreqMax=maxatom->iFreq+RFreqency;
-	   itmp=DimBase >> 1;
-	   if(iFreqMax>=itmp)
-	     iFreqMax=itmp;
-
-	   for(i=StartDictionSize,k=0 ; i<DictionSize ; i++,k++)
-	     {
-	       LoadBigAtom(&atom,DimBase,i);  /* Przegladane sa tylko atomy z otoczenia maksimum */
-	       if(atom.iScale>=iScaleMin && atom.iScale<=iScaleMax)
-		 if(atom.iFreq>=iFreqMin  && atom.iFreq<=iFreqMax)
-		   if(atom.trans>=iPosMin  && atom.trans<=iPosMax)
-		     {
-		       UpDate(sygnal,DimBase,&InfoTable[i],&atom);
-		       if(atom.modulus>max)
-			 {
-			   max=atom.modulus;
-			   memcpy((void *)maxatom,(void *)&atom,sizeof(BIGATOM));
-			   
-			   iScaleMin=maxatom->iScale-ROctave;
-			   if(iScaleMin<0)
-			     iScaleMin=0;
-			   
-			   iScaleMax=maxatom->iScale+ROctave;
-			   if(iScaleMax>MaxOctave)
-			     iScaleMax=MaxOctave;  
-			   
-			   iPosMin=maxatom->trans-RPosition;
-			   if(iPosMin<0)
-			     iPosMin=0;
-         
-			   iPosMax=maxatom->trans+RPosition;
-			   if(iPosMax>=DimBase)
-			     iPosMax=DimBase-1;
-			   
-			   iFreqMin=maxatom->iFreq-RFreqency;
-			   if(iFreqMin<=0)
-			     iFreqMin=1;
-         
-			   iFreqMax=maxatom->iFreq+RFreqency;
-			   itmp=DimBase >> 1;
-			   if(iFreqMax>=itmp)
-			     iFreqMax=itmp;
-			 }  
-		     }
-	     }
-	 }
-     }
-   
-   if(maxatom->typ!=DIRAK)         /* Sprawdzamy kwadraty modulusa */
-     {
-       maxatom->modulus=sqrt(maxatom->modulus);
-       maxatom->amplitude=sqrt(maxatom->amplitude);  
-     }         
-   
-   memcpy((void *)&OldMaxAtom,(void *)maxatom,sizeof(BIGATOM));
-   if(maxatom->typ==DIRAK)
-    {
-      if(maxatom->modulus<0.0)      /* Konwencja interpretacji fazy atomu Diraka */
-         {
-           maxatom->modulus*=-1.0;
-           maxatom->phase=M_PI;
-         }
-    } 
-
-   if(maxatom->phase<0.0)
-     maxatom->phase+=2.0*M_PI; 
- }                     
+	if(maxatom->typ==DIRAK)
+	{
+		if(maxatom->modulus<0.0)      /* Konwencja interpretacji fazy atomu Diraka */
+		{
+			maxatom->modulus*=-1.0;
+			maxatom->phase=M_PI;
+		}
+	} 
+	
+	if(maxatom->phase<0.0)
+		maxatom->phase+=2.0*M_PI; 
+}                     
 
 #else    /* Wersja wielowatkowa */
 
@@ -1428,8 +1701,9 @@ static double max,*MSygnal;
 static int iScaleMin,iScaleMax,iFreqMin,iFreqMax,iPosMin,iPosMax; 
 static int ShmPtr;
 
-static void SetSharedMemory(void) {
-  InfoTable=(INFOATOM *)shmat(ShmPtr,NULL,0);
+static void SetSharedMemory(void)
+{
+	InfoTable=(INFOATOM *)shmat(ShmPtr,NULL,0);
 }
 
 void Loop(int Start,int Stop,void f(int,BIGATOM *))
@@ -1783,31 +2057,55 @@ static void FindBigAtom(double *sygnal,int DimBase,BIGATOM *MaxAtom,
 #endif
 
 static void SubBigAtom(double *sygnal,register int n,BIGATOM *atom)	      
- {
-   register int i;    /* Odjecie od sygnalu atomu Gabora */
-   const double Sin=sin(atom->frequency),Cos=cos(atom->frequency),
-                CosPhase=cos(atom->phase),SinPhase=sin(atom->phase),
-                ConstExp=exp(-M_PI/SQR((double)(atom->scale))),
-                ConstStep=SQR(ConstExp),
-                Constans=atom->modulus/atom->amplitude;
-   register double OldSin=0.0,OldCos=1.0,NewCos,dtmp,dtmp2,dtmp3,
-	           OldExp=1.0,Factor=ConstExp;
+{
+	register int i;    /* Odjecie od sygnalu atomu Gabora */
+	const double Sin=sin(atom->frequency),Cos=cos(atom->frequency),
+		CosPhase=cos(atom->phase),SinPhase=sin(atom->phase),
+		ConstExp=exp(-M_PI/SQR((double)(atom->scale))),
+		ConstStep=SQR(ConstExp),
+		Constans=atom->modulus/atom->amplitude;
+	register double OldSin=0.0,OldCos=1.0,NewCos,dtmp,dtmp2,dtmp3,
+		OldExp=1.0,Factor=ConstExp;
+	int hasChirp;
+	double tempvalue;
+	
+	*sygnal-=CosPhase*Constans;
+	
+	hasChirp = fabs(atom->chirpfactor) > 1e-9 ? 1 : 0;
+	
+	for(i=1 ; i<n ; i++)
+	{
+		OldExp*=Factor;
+		Factor*=ConstStep;
 
-   *sygnal-=CosPhase*Constans;
-   for(i=1 ; i<n ; i++)
-     {
-       NewCos=OldCos*Cos-OldSin*Sin;
-       OldSin=OldCos*Sin+OldSin*Cos;
-       OldCos=NewCos;
-       OldExp*=Factor;
-       Factor*=ConstStep;
-       dtmp3=OldExp*Constans;
-       dtmp=CosPhase*NewCos;
-       dtmp2=SinPhase*OldSin;
-       *(sygnal+i)-=dtmp3*(dtmp-dtmp2);
-       *(sygnal-i)-=dtmp3*(dtmp+dtmp2);
-     }
- }
+		if(hasChirp)
+		{
+			tempvalue = Constans*OldExp*cos(atom->phase + i*(atom->frequency + i*atom->chirpfactor));
+			*(sygnal+i) -= tempvalue;
+			tempvalue = Constans*OldExp*cos(atom->phase - i*(atom->frequency - i*atom->chirpfactor));
+			*(sygnal-i) -= tempvalue;
+			// *(sygnal+i)-= Constans*OldExp*cos(atom->phase + i*(atom->frequency + i*atom->chirpfactor));
+			// *(sygnal-i)-= Constans*OldExp*cos(atom->phase - i*(atom->frequency - i*atom->chirpfactor));
+		}
+		else
+		{
+			NewCos=OldCos*Cos-OldSin*Sin;
+			OldSin=OldCos*Sin+OldSin*Cos;
+			OldCos=NewCos;
+			
+			dtmp3=OldExp*Constans;
+			dtmp=CosPhase*NewCos;
+			dtmp2=SinPhase*OldSin;
+
+			tempvalue = dtmp3*(dtmp-dtmp2);
+			*(sygnal+i) -= tempvalue;
+			// *(sygnal+i)-=dtmp3*(dtmp-dtmp2);
+			tempvalue = dtmp3*(dtmp+dtmp2);
+			*(sygnal-i) -= tempvalue;
+			// *(sygnal-i)-=dtmp3*(dtmp+dtmp2);			
+		}
+	}
+}
 
 static void SubFourierAtom(double *sygnal,register int n,BIGATOM *atom)	      
  {
@@ -1853,296 +2151,335 @@ static double **MakeDoubleTable(int Rows,int Col)   /* Alokacja pamieci pod tabl
  }            
   
 static void FreeDoubleTable(double **ptr,int Rows)
- {
-   int i;
-   
-   for(i=0 ; i<Rows ; i++)
-     free((void *)ptr[i]);
-   free((void *)ptr);
- }        
-        	/* Algorytm MP analizy sygnalow */
+{
+	int i;
+	
+	for(i=0 ; i<Rows ; i++)
+		free((void *)ptr[i]);
 
+	free((void *)ptr);
+}        
+    
+/* Algorytm MP analizy sygnalow */
 void BigHmpp(float *syg,int DimBase,int DimRoz,BIGATOM atomy[])
- {
-   const int TrueDimBase=3*DimBase,CosPosition=DimBase/2;
-   double *resid,sum,*BeginSig,E,OldEnerg,*TmpTable;
-   int i,j,itmp;
+{
+	const int TrueDimBase=3*DimBase,CosPosition=DimBase/2;
+	double *resid,sum,*BeginSig,E,OldEnerg,*TmpTable;
+	int i,j,itmp;
+	
+	if((resid=(double *)malloc(TrueDimBase*sizeof(double)))==NULL)
+	{
+		fprintf(stderr,"Error allocating memory (BigHmpp 1) !\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	if((GaborTab=(double *)malloc(TrueDimBase*sizeof(double)))==NULL)
+	{
+		fprintf(stderr,"Error allocating memory (BigHmpp 2) !\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	if((TmpExpTab=(double *)malloc(TrueDimBase*sizeof(double)))==NULL)
+	{
+		fprintf(stderr,"Error allocating memory (BigHmpp 3) !\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	if((TmpTable=(double *)malloc(TrueDimBase*sizeof(double)))==NULL)
+	{
+		fprintf(stderr,"Error allocating memory (BigHmpp 4) !\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	if(Heuristic==ON)
+	{
+		if(StartDictionSize>DictionSize)
+		{
+			StartDictionSize=DictionSize;
+			Heuristic=OFF;
+		}  
+	}
+	
+	if(Heuristic==ON)	    /* Dla wspomagania wyszukiwania atomow */
+	{
+		if((OldAtomsTable=MakeDoubleTable(DimRoz,TrueDimBase))==NULL) 
+		{
+			fprintf(stderr,"Error allocating memory (BigHmpp (2)) !\n");
+			exit(EXIT_FAILURE);
+		}   
+	}  
+	else
+		StartDictionSize=DictionSize; 
+	
+	if(prn==ON)
+	{
+		fprintf(stdout,"<<< CALCULATING ... >>>\n");
+		fflush(stdout);
+	}
+	
+	// the same as (&(resid[DimBase]))
+	// obs.: I'd rather use (&(resid[DimBase])) then resid+DimBase
+	// because resid+DimBase != ((long)resid) + DimBase
+	// and it's harder to understand at fist sight
+	BeginSig=resid+DimBase;
+	ConstScale=sqrt(log(1.0/EPSYLON)/M_PI);
+	
+	for(i=0 ; i<TrueDimBase ; i++)
+		resid[i]=(double)syg[i];
+	
+	for(j=DimBase,sum=0.0; j<2*DimBase ; j++)
+		sum+=SQR(resid[j]);
+	
+	E0=sum;			        /* Energia sygnalu */
+	
+	OldEnerg=0.0;			/* Inicjacja calkowitej energii */
+	
+	for(j=0 ; j<3*DimBase ; j++)         /* potrzebne do okreslenia stabilnosci metody */
+		OldEnerg+=SQR(resid[j]);     
+	
+	for(i=0 ; i<DimRoz ; i++)
+	{
+		FindBigAtom(BeginSig,DimBase,&atomy[i],i,PRNTIME,OFF);
+		
+		/* Zachowujemy wartsci na wypadek utraty stabilnosci */
+		memcpy((void *)TmpTable,(void *)resid,TrueDimBase*sizeof(double));
+		
+		switch(atomy[i].typ)
+		{
+		case GABOR:
+			SubBigAtom(BeginSig+atomy[i].trans,
+				AtomLen(&atomy[i],DimBase),&atomy[i]);
+			break;
+		case DIRAK:
+			if(atomy[i].phase<0.5)
+				*(BeginSig+atomy[i].trans)-=atomy[i].modulus;
+			else
+				*(BeginSig+atomy[i].trans)+=atomy[i].modulus; 
+			break;
+		case FOURIER:
+			SubFourierAtom(BeginSig+CosPosition,DimBase,&atomy[i]);
+			break;
+		}
 
-   if((resid=(double *)malloc(TrueDimBase*sizeof(double)))==NULL) {
-     fprintf(stderr,"Error allocating memory (BigHmpp 1) !\n");
-     exit(EXIT_FAILURE);
-   }
-
-   if((GaborTab=(double *)malloc(TrueDimBase*sizeof(double)))==NULL) {
-     fprintf(stderr,"Error allocating memory (BigHmpp 2) !\n");
-     exit(EXIT_FAILURE);
-   }
-
-   if((TmpExpTab=(double *)malloc(TrueDimBase*sizeof(double)))==NULL) {
-     fprintf(stderr,"Error allocating memory (BigHmpp 3) !\n");
-     exit(EXIT_FAILURE);
-   }
-
-   if((TmpTable=(double *)malloc(TrueDimBase*sizeof(double)))==NULL) {
-     fprintf(stderr,"Error allocating memory (BigHmpp 4) !\n");
-     exit(EXIT_FAILURE);
-   }
-   
-   if(Heuristic==ON)
-    if(StartDictionSize>DictionSize)
-     {
-       StartDictionSize=DictionSize;
-       Heuristic=OFF;
-     }  
-            
-   if(Heuristic==ON)	    /* Dla wspomagania wyszukiwania atomow */
-     {
-       if((OldAtomsTable=MakeDoubleTable(DimRoz,TrueDimBase))==NULL) 
-	 {
-	   fprintf(stderr,"Error allocating memory (BigHmpp (2)) !\n");
-	   exit(EXIT_FAILURE);
-	 }   
-     }  
-   else StartDictionSize=DictionSize; 
- 
-   if(prn==ON) {
-       fprintf(stdout,"<<< CALCULATING ... >>>\n");
-       fflush(stdout);
-   }
-            
-   BeginSig=resid+DimBase;
-   ConstScale=sqrt(log(1.0/EPSYLON)/M_PI);
-     
-   for(i=0 ; i<TrueDimBase ; i++)
-     resid[i]=(double)syg[i];
-    
-   for(j=DimBase,sum=0.0; j<2*DimBase ; j++)
-     sum+=SQR(resid[j]);
-   E0=sum;			        /* Energia sygnalu */
-   
-   OldEnerg=0.0;			/* Inicjacja calkowitej energii */
-   for(j=0 ; j<3*DimBase ; j++)         /* potrzebne do okreslenia stabilnosci metody */
-    OldEnerg+=SQR(resid[j]);     
-     
-   for(i=0 ; i<DimRoz ; i++)
-    {
-      FindBigAtom(BeginSig,DimBase,&atomy[i],i,PRNTIME,OFF);
-      /* Zachowujemy wartsci na wypadek utraty stabilnosci */
-      memcpy((void *)TmpTable,(void *)resid,TrueDimBase*sizeof(double));
-      switch(atomy[i].typ) {
-       case GABOR:
-              SubBigAtom(BeginSig+atomy[i].trans,
-                         AtomLen(&atomy[i],DimBase),&atomy[i]);
-              break;
-       case DIRAK:
-              if(atomy[i].phase<0.5)
-                *(BeginSig+atomy[i].trans)-=atomy[i].modulus;
-              else
-                *(BeginSig+atomy[i].trans)+=atomy[i].modulus; 
-              break;
-       case FOURIER:
-              SubFourierAtom(BeginSig+CosPosition,DimBase,&atomy[i]);
-              break;
-      }               
-                                      
-      for(j=0,sum=0.0; j<3*DimBase ; j++)	/* Po calosci sygnalu lacznie */
-         sum+=SQR(resid[j]);			/* z warunkami brzegowymi */
-      
-      if(sum>OldEnerg)
-        {
-          if(prn==ON)		/* W przypadku stwierdzenia utray stabilnosci */
-             fprintf(stderr,"<<< REINITIALIZATION >>>\n");
-                            
-            /* Reinicjujemy tablice iloczynow skalarnych */
-            /* Startujemy od niezmienionej wartosci */
-            
-          memcpy((void *)resid,(void *)TmpTable,TrueDimBase*sizeof(double));
-          FindBigAtom(BeginSig,DimBase,&atomy[i],i,NOTIME,ON); /* Tak jak dla zerowej iteracji */
-          switch(atomy[i].typ) {
-            case GABOR:
-              SubBigAtom(BeginSig+atomy[i].trans,
-                         AtomLen(&atomy[i],DimBase),&atomy[i]);
-              break;
-            case DIRAK:
-              if(atomy[i].phase<0.5)
-                *(BeginSig+atomy[i].trans)-=atomy[i].modulus;
-              else
-                *(BeginSig+atomy[i].trans)+=atomy[i].modulus; 
-              break;
-            case FOURIER:
-              SubFourierAtom(BeginSig+CosPosition,DimBase,&atomy[i]);
-              break;
-          }               
-                                      
-         for(j=0,sum=0.0; j<3*DimBase ; j++)	/* Po calosci sygnalu */
-           sum+=SQR(resid[j]);
-           
-        /* Jezeli to nie pomoze to darujemy sobie dalsze obliczenia */
-        if(sum>OldEnerg)
-         {
-           if(prn==ON)
-             fprintf(stderr,"<<< Cannot compensate stability loss >>\n");
-           break;   
-         }  
-      }
-          
-      OldEnerg=sum;
-      for(j=DimBase,sum=0.0; j<2*DimBase ; j++)
-        sum+=SQR(resid[j]);
-      
-      E=100.0*(1.0-sum/E0);
-      if(E<0.0) E=0.0;
-      if(prn==ON && prninfo==ON)
-       {   
-         fprintf(stdout,"%3d %8.4f%% ",i,E);
-         PrintBigAtom(&atomy[i]);
-       }
-     
-      if(E>=epsylon)
-        {
-          if(prn==ON)
-            fprintf(stdout,"<<< Required accuracy reached >>>\n");
-          i++;  
-          break;
-        }
-    } 
-    
-   dimroz=i;	   /* Wymiar rozwiazania */
-   itmp=3*DimBase;
-   for(i=0 ; i<itmp ; i++)
-     sygnal[i]=(float)resid[i];
-      
-   free((void *)resid); free((void *)GaborTab); free((void *)TmpExpTab);
-   free((void *)TmpTable);
-   if(Heuristic==ON)
-      FreeDoubleTable(OldAtomsTable,DimRoz); 
- }  
+		sum=0.0;
+		
+		for(j=0; j<3*DimBase ; j++)	/* Po calosci sygnalu lacznie */
+			sum+=SQR(resid[j]);			/* z warunkami brzegowymi */
+		
+		if(sum>OldEnerg)
+		{
+			if(prn==ON)		/* W przypadku stwierdzenia utray stabilnosci */
+				fprintf(stderr,"<<< REINITIALIZATION >>>\n");
+			
+			/* Reinicjujemy tablice iloczynow skalarnych */
+			/* Startujemy od niezmienionej wartosci */
+			
+			memcpy((void *)resid,(void *)TmpTable,TrueDimBase*sizeof(double));
+			
+			FindBigAtom(BeginSig,DimBase,&atomy[i],i,NOTIME,ON); /* Tak jak dla zerowej iteracji */
+			
+			switch(atomy[i].typ)
+			{
+			case GABOR:
+				SubBigAtom(BeginSig+atomy[i].trans,
+					AtomLen(&atomy[i],DimBase),&atomy[i]);
+				break;
+			case DIRAK:
+				if(atomy[i].phase<0.5)
+					*(BeginSig+atomy[i].trans)-=atomy[i].modulus;
+				else
+					*(BeginSig+atomy[i].trans)+=atomy[i].modulus; 
+				break;
+			case FOURIER:
+				SubFourierAtom(BeginSig+CosPosition,DimBase,&atomy[i]);
+				break;
+			}               
+			
+			for(j=0,sum=0.0; j<3*DimBase ; j++)	/* Po calosci sygnalu */
+				sum+=SQR(resid[j]);
+			
+			/* Jezeli to nie pomoze to darujemy sobie dalsze obliczenia */
+			if(sum>OldEnerg)
+			{
+				if(prn==ON)
+					fprintf(stderr,"<<< Cannot compensate stability loss >>\n");
+				break;   
+			}  
+		}
+		
+		OldEnerg=sum;
+		for(j=DimBase,sum=0.0; j<2*DimBase ; j++)
+			sum+=SQR(resid[j]);
+		
+		E=100.0*(1.0-sum/E0);
+		
+		if(E<0.0)
+			E=0.0;
+		
+		if(prn==ON && prninfo==ON)
+		{   
+			fprintf(stdout,"%3d %8.4f%% ",i,E);
+			PrintBigAtom(&atomy[i]);
+		}
+		
+		if(E>=epsylon)
+		{
+			if(prn==ON)
+				fprintf(stdout,"<<< Required accuracy reached >>>\n");
+			i++;  
+			break;
+		}
+	} 
+	
+	dimroz=i;	   /* Wymiar rozwiazania */
+	itmp=3*DimBase;
+	
+	for(i=0 ; i<itmp ; i++)
+		sygnal[i]=(float)resid[i];
+	
+	free((void *)resid);
+	free((void *)GaborTab);
+	free((void *)TmpExpTab);
+	free((void *)TmpTable);
+	
+	if(Heuristic==ON)
+		FreeDoubleTable(OldAtomsTable,DimRoz); 
+}  
   
 void AnalizaMP(char *nic)
- {
-   register int i;
-   BIGATOM *atomy;
-   double Tcomp;
+{
+	register int i;
+	BIGATOM *atomy;
+	double Tcomp;
 #if defined(LINUX) && !defined(__MSDOS__) && !defined(MULTITHREAD)
-   clock_t t1,t2;
+	clock_t t1,t2;
 #else
-   time_t start,stop;      
+	time_t start,stop;      
 #endif
-
-   if(nic!=NULL && prn==1)
-     fprintf(stdout,"%s\n",nic);
-
-   if(MakeDictionary()==-1)   /* Mozliwa jest zmina rozmiaru slownika */
-     {
-       fprintf(stderr,"Error allocating the dictionary !\n");
-       exit(EXIT_FAILURE);
-     }  
-   
-   if(FastMode==ON)
-    {
-      if(DiadicStructure==ON && VeryFastMode==ON)
-        if(MakeFastMPDictionary(DimBase)==-1)
-          {
-            fprintf(stderr,"Errors allocating the dictionary !\n");
-            exit(EXIT_FAILURE);
-          } 
-#ifdef MULTITHREAD
-      if((ShmPtr=shmget(IPC_PRIVATE,DictionSize*sizeof(INFOATOM),
-			0666|IPC_CREAT))==-1)
+	
+	if(nic!=NULL && prn==1)
+		fprintf(stdout,"%s\n",nic);
+	
+	if(MakeDictionary()==-1)   /* Mozliwa jest zmina rozmiaru slownika */
 	{
-	  fprintf(stderr,"Error allocating shared memory\n");
-	  perror("");
-	  exit(EXIT_FAILURE);
+		fprintf(stderr,"Error allocating the dictionary !\n");
+		exit(EXIT_FAILURE);
+	}  
+	
+	if(FastMode==ON)
+	{
+		if(DiadicStructure==ON && VeryFastMode==ON)
+		{
+			if(MakeFastMPDictionary(DimBase)==-1)
+			{
+				fprintf(stderr,"Errors allocating the dictionary !\n");
+				exit(EXIT_FAILURE);
+			} 
+		}
+		
+#ifdef MULTITHREAD
+		if((ShmPtr=shmget(IPC_PRIVATE,DictionSize*sizeof(INFOATOM),
+			0666|IPC_CREAT))==-1)
+		{
+			fprintf(stderr,"Error allocating shared memory\n");
+			perror("");
+			exit(EXIT_FAILURE);
+		}
+		InfoTable=(INFOATOM *)shmat(ShmPtr,NULL,0);
+#else
+		if((InfoTable=(INFOATOM *)malloc(DictionSize*sizeof(INFOATOM)))==NULL)
+		{
+			fprintf(stderr,"Error allocating memory (AnalizaMP) !\n");
+			exit(EXIT_FAILURE);
+		}
+#endif
 	}
-      InfoTable=(INFOATOM *)shmat(ShmPtr,NULL,0);
-#else
-      if((InfoTable=(INFOATOM *)malloc(DictionSize*sizeof(INFOATOM)))==NULL)
-       {
-         fprintf(stderr,"Error allocating memory (AnalizaMP) !\n");
-         exit(EXIT_FAILURE);
-       }
-#endif
-    }
-            
-   if((atomy=(BIGATOM *)malloc(OldDimRoz*sizeof(BIGATOM)))==NULL)
-    {
-      fprintf(stderr,"Problems allocating memory (AnalizaMP) !\n");
-      exit(EXIT_FAILURE);
-    }
-      
+	
+	if((atomy=(BIGATOM *)malloc(OldDimRoz*sizeof(BIGATOM)))==NULL)
+	{
+		fprintf(stderr,"Problems allocating memory (AnalizaMP) !\n");
+		exit(EXIT_FAILURE);
+	}
+	
 #if defined(LINUX) && !defined(__MSDOS__) && !defined(MULTITHREAD)
-   t1=clock();
+	t1=clock();
 #else       
-   time(&start);
-#endif   
-   BigHmpp(sygnal,DimBase,OldDimRoz,atomy);
+	time(&start);
+#endif 
+	
+	BigHmpp(sygnal,DimBase,OldDimRoz,atomy);
+	
 #if defined(LINUX) && !defined(__MSDOS__) && !defined(MULTITHREAD)
-   t2=clock();
-   Tcomp=(double)(t2-t1)/(double)CLOCKS_PER_SEC-FirstIterTime;
+	t2=clock();
+	Tcomp=(double)(t2-t1)/(double)CLOCKS_PER_SEC-FirstIterTime;
 #else       
-   time(&stop);
-   Tcomp=difftime(stop,start);
+	time(&stop);
+	Tcomp=difftime(stop,start);
 #endif   
-       
-   if(prn==ON)
-    {
-     char napis[STRING]=" ";
-     
-     if(Tcomp>0.0)
-       sprintf(napis,"%5.0f atoms/sec",
-               dimroz*(double)(DictionSize+3*DimBase/2)/(double)Tcomp);
-     fprintf(stdout,"\nCalculations time: %g sek (%.0f min %.0f sek) %s\n",
-                    Tcomp,floor(Tcomp/60.0),Tcomp-60.0*floor(Tcomp/60.0),napis);
+	
+	if(prn==ON)
+	{
+		char napis[STRING]=" ";
+		
+		if(Tcomp>0.0)
+			sprintf(napis,"%5.0f atoms/sec",
+			dimroz*(double)(DictionSize+3*DimBase/2)/(double)Tcomp);
+		fprintf(stdout,"\nCalculations time: %g sek (%.0f min %.0f sek) %s\n",
+			Tcomp,floor(Tcomp/60.0),Tcomp-60.0*floor(Tcomp/60.0),napis);
+		
 #if defined(LINUX) && !defined(__MSDOS__) && !defined(MULTITHREAD)
-     Tcomp+=FirstIterTime;
-	  if(Tcomp>0.0)
-       sprintf(napis,"%5.0f atoms/sec",
-               dimroz*(double)(DictionSize+3*DimBase/2)/(double)Tcomp);
-     else napis[0]='\0';          
-     fprintf(stdout,"Total calculations time : %g sek (%.0f min %.0f sek) %s\n",
-                    Tcomp,floor(Tcomp/60.0),Tcomp-60.0*floor(Tcomp/60.0),napis);
+		Tcomp+=FirstIterTime;
+		if(Tcomp>0.0)
+			sprintf(napis,"%5.0f atoms/sec",
+			dimroz*(double)(DictionSize+3*DimBase/2)/(double)Tcomp);
+		else napis[0]='\0';          
+		fprintf(stdout,"Total calculations time : %g sek (%.0f min %.0f sek) %s\n",
+			Tcomp,floor(Tcomp/60.0),Tcomp-60.0*floor(Tcomp/60.0),napis);
 #endif                                        
-    }                                    
-     
-   if(book!=NULL) free((void *)book);
-   if((book=(BOOK *)malloc(dimroz*sizeof(BOOK)))==NULL)
-    {
-      fprintf(stderr,"Problems allocating memory (AnalizaMP) !\n");
-      exit(1);
-    }  
-    
-   for(i=0,Ec=0.0 ; i<dimroz ; i++)
-     Ec+=SQR(atomy[i].modulus); 
+	}                                    
+	
+	if(book!=NULL) free((void *)book);
+	if((book=(BOOK *)malloc(dimroz*sizeof(BOOK)))==NULL)
+	{
+		fprintf(stderr,"Problems allocating memory (AnalizaMP) !\n");
+		exit(1);
+	}  
+	
+	for(i=0,Ec=0.0 ; i<dimroz ; i++)
+		Ec+=SQR(atomy[i].modulus); 
+	
+	for(i=0 ; i<dimroz ; i++)	/* Konwenca dla reszty oprogramowania */
+	{
+		book[i].numer=i;
+		*((float *)(book[i].param))=(float)(atomy[i].scale);
+		*((float *)(book[i].param)+1)=(float)(atomy[i].trans);
+		*((float *)(book[i].param)+2)=(float)(atomy[i].frequency);
+		// GD: em fase de testes!
+		*((float *)(book[i].param)+3)=(float)(atomy[i].chirpfactor);
 
-   for(i=0 ; i<dimroz ; i++)	/* Konwenca dla reszty oprogramowania */
-    {
-      book[i].numer=i;
-      *((float *)(book[i].param))=(float)(atomy[i].scale);;
-      *((float *)(book[i].param)+1)=(float)(atomy[i].trans);
-      *((float *)(book[i].param)+2)=(float)(atomy[i].frequency);
-      book[i].phase=(float)(atomy[i].phase);
-      book[i].waga=(float)(atomy[i].modulus);
-      book[i].amplitude=(float)(atomy[i].amplitude);
-      book[i].Energia=(float)SQR(book[i].waga);
-    }
-    
-   Compute=ON;   
-   free((void *)atomy);
-   
-   if(FastMode==ON)
-    {
-      if(DiadicStructure==ON && VeryFastMode==ON)
-        CloseFastMPDictionary();
+		book[i].phase=(float)(atomy[i].phase);
+		book[i].waga=(float)(atomy[i].modulus);
+		book[i].amplitude=(float)(atomy[i].amplitude);
+		book[i].Energia=(float)SQR(book[i].waga);
+	}
+	
+	Compute=ON;   
+	free((void *)atomy);
+	
+	if(FastMode==ON)
+	{
+		if(DiadicStructure==ON && VeryFastMode==ON)
+			CloseFastMPDictionary();
 #ifdef MULTITHREAD          /* Zwolnienie pamieci dzielonej */
-      shmdt(InfoTable);
-      shmctl(ShmPtr,IPC_RMID,0);
+		shmdt(InfoTable);
+		shmctl(ShmPtr,IPC_RMID,0);
 #else
-      free((void *)InfoTable);
+		free((void *)InfoTable);
 #endif
-    }
-      
-   CloseDictionary();
-  }  
+	}
+	
+	CloseDictionary();
+}  
    
 static FLOAT **MakeFLOATTable(int Sx,int Sy)
  {

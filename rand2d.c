@@ -209,35 +209,35 @@ static int Max1DSize=-1;
 #include <stdio.h>
 
 int InicRand1D(float Tab[],int n)
- {
-   register int i; /* Inicjacja generatora licz losowych */
-   float sum=0.0F;
-
-   if(Dyst!=NULL)
-     {
-       free((void *)Dyst);
-       Dyst=NULL;
-     }
-        
-   if((Dyst=(float *)malloc(n*sizeof(float)))==NULL)
-     return -1;
-     
-   Max1DSize=n;
-   for(i=0 ; i<n ; i++)      /* Normawanie i regenerowanie */
-     sum+=(Tab[i]<0.0F) ? (Dyst[i]=1.0F) : (Dyst[i]=Tab[i]);
-     
-   if(sum==0.0F)
-     {
-       free((void *)Dyst); Max1DSize=-1; Dyst=NULL;
-       return -1;
-     }
-         
-   Dyst[0]/=sum;            /* Wyznaczenie dystrybuanty */
-   for(i=1 ; i<n ; i++)
-     Dyst[i]=Dyst[i-1]+Dyst[i]/sum;  
-     
-   return 0;
- }     
+{
+	register int i; /* Inicjacja generatora licz losowych */
+	float sum=0.0F;
+	
+	if(Dyst!=NULL)
+	{
+		free((void *)Dyst);
+		Dyst=NULL;
+	}
+	
+	if((Dyst=(float *)malloc(n*sizeof(float)))==NULL)
+		return -1;
+	
+	Max1DSize=n;
+	for(i=0 ; i<n ; i++)      /* Normawanie i regenerowanie */
+		sum+=(Tab[i]<0.0F) ? (Dyst[i]=1.0F) : (Dyst[i]=Tab[i]);
+	
+	if(sum==0.0F)
+	{
+		free((void *)Dyst); Max1DSize=-1; Dyst=NULL;
+		return -1;
+	}
+	
+	Dyst[0]/=sum;            /* Wyznaczenie dystrybuanty */
+	for(i=1 ; i<n ; i++)
+		Dyst[i]=Dyst[i-1]+Dyst[i]/sum;  
+	
+	return 0;
+}     
  
 void CloseRand1D(void)     /* Zwolnienie pamieci */
  {

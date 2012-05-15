@@ -4,7 +4,8 @@
 #include <string.h>	   /* UNIXPATH   - styl UNIX'a nazw plikow */
 #include <ctype.h>         /* 1998 01 01 - parametryzowalne skrypty */
 #ifndef MYNOPOSIX          /* 1999 06 11 - wielostopniowa sciezka */
-#include <dirent.h>        /* 1999 06 30 - alfabetyczny help */ 
+// modified by GD
+// #include <dirent.h>        /* 1999 06 30 - alfabetyczny help */ 
 #include <sys/stat.h>
 #endif
 #include <time.h>
@@ -66,22 +67,26 @@ static char *makePathName(char *path,int n) {
 }
 
 void SetBatchPath(char *path)  /* Ustawienie scizki dla polecen zewnetrznych */
- {
-   char buffor[STRING];
-   int len;
-   
-   sprintf(buffor,"%s",path);
-   if((len=strlen(buffor))!=0) {
-     strcpy(BatchPath,buffor);
-     if(BatchPath[len-1]!=';' || BatchPath[len-1]!=':') {
-       BatchPath[len]=';';
-       BatchPath[len+1]='\0';
-     }
-   }
-   
-   if(prn==1)
-     fprintf(stdout,"PATH=%s\n",BatchPath);
- }          
+{
+	char buffor[STRING];
+	int len;
+	
+	sprintf(buffor,"%s",path);
+	
+	if((len=strlen(buffor))!=0)
+	{
+		strcpy(BatchPath,buffor);
+		
+		if(BatchPath[len-1]!=';' || BatchPath[len-1]!=':')
+		{
+			BatchPath[len]=';';
+			BatchPath[len+1]='\0';
+		}
+	}
+	
+	if(prn==1)
+		fprintf(stdout,"PATH=%s\n",BatchPath);
+}          
 
 void addPath(char *path) {
   char buffor[STRING];
@@ -163,6 +168,9 @@ static void DeleteHistory(void)			/* Zwolniene pamieci po historii */
       free((void *)HistTable[i]);
     }
  }
+
+// modified by GD
+#define MYNOPOSIX
 
 #ifndef MYNOPOSIX				/* Dla systemu nie uwzglednajacego */
 						/* standart POSIX dla obslugi katalogow */
@@ -598,360 +606,415 @@ static void Replace(char *Env[],char *string,char *out)
 }
 
 int Batch(COMMAND commands[],char *filename,char *argv[])
- {
-   FILE *plik;
-   char *cmdline,*comand,*opt;
-   int i,k=0,ok,n=0,count=0;
-
-   if((cmdline=(char *)malloc(MAXCMD*sizeof(char)))==NULL)
-     return -1;
-
-   if((comand=(char *)malloc(MAXCMD*sizeof(char)))==NULL) {
-     free((void *)cmdline);
-     return -1;
-   }
-
-   if((opt=(char *)malloc(MAXCMD*sizeof(char)))==NULL) {
-     free((void *)cmdline); free((void *)comand);
-     return -1;
-   }
-
-   if((plik=fopen(filename,"rt"))==NULL)
-      return -1;
-      
-   if(prn==1)
-     fprintf(stdout,"\t\t\t<<< START OF SCRIPT %s >>>\n",filename);
-
-   while(commands[n].command!=NULL) n++; /* Liczba dostepnych opcji */
-   while(!feof(plik))
-    {
-      comand[0]='\0'; opt[0]='\0';
-      fscanf(plik,"%[^\n]\n",cmdline);
-      ok=i=0;
-      while(cmdline[i] && isspace(cmdline[i])) i++;
-
-      if(cmdline[i]=='#')				/* Komentarz */
-	continue;
-
-      sscanf(cmdline+i,"%s",comand);
-      i+=strlen(comand);
-      while(cmdline[i] && isspace(cmdline[i])) i++;
-      sscanf(cmdline+i,"%[^\n]\n",opt);
-     
-      if(strcmp(comand,"end")==0) 			/* Zakonczenie skryptu */
-       {
-         if(prn==1)
-           fprintf(stdout,"[%d] BATCH(%s)>end\n",count,filename);
-	 break;
-       }
-
-      if(strcmp(comand,"batch")==0)
-       if(strcmp(opt,filename)!=0)			/* Zapobiega rekurencji (prymitywnie) */
+{
+	FILE *plik;
+	char *cmdline,*comand,*opt;
+	int i,k=0,ok,n=0,count=0;
+	
+	if((cmdline=(char *)malloc(MAXCMD*sizeof(char)))==NULL)
+		return -1;
+	
+	if((comand=(char *)malloc(MAXCMD*sizeof(char)))==NULL)
 	{
-	  char **newargv,*buffor;
-	  int argc,i;
-
-	  if((newargv=(char **)malloc(MAXCMD*sizeof(char *)))==NULL)
-	    continue;
-
-	  if((buffor=(char *)malloc(MAXCMD*sizeof(char)))==NULL) {
-	    free((void *)newargv);
-	    continue;
-	  }
-	  
-	  if(prn==1)
-            fprintf(stdout,"[%d] BATCH(%s)>batch %s\n",count,filename,opt);
-	  
-	  for(i=0 ; i<MAXCMD ; i++)
-	    newargv[i]=NULL;
-
-	  Replace(argv,opt,buffor);                     /* Rozwniecie parametrow */
-	  StrToArgv(buffor,newargv,&argc);
-	  if(Batch(commands,newargv[0],newargv)==-1)
-            fprintf(stderr,"File %s is missing !\n",opt);
-	  FreeArgv(newargv,argc); free((void *)buffor); free((void *)newargv);
-	  count++;
-	  continue;
+		free((void *)cmdline);
+		return -1;
 	}
-      
-      if(strcmp(comand,"sys")==0)
-        {
-	  if(prn==1)
-             fprintf(stdout,"[%d] BATCH(%s)>!%s\n",count,filename,opt);
-          if(system(opt)==-1)
-            fprintf(stderr,"Shell command not executed properly !\n");
-          count++;
-          continue;
-        }
+	
+	if((opt=(char *)malloc(MAXCMD*sizeof(char)))==NULL)
+	{
+		free((void *)cmdline);
+		free((void *)comand);
 
-      for(i=0 ; i<n ; i++)				/* Nieznane komedy sa ignorowane */
-       if(strcmp(commands[i].command,comand)==0)
-	 {
-	    char buffor[STRING];
-
-	    ok=1;
-	    Replace(argv,opt,buffor);                   /* Rozwiniecie parametrow */
-	    if(prn==1)
-               fprintf(stdout,"[%d] BATCH(%s)> %s %s\n",count,filename,comand,buffor);
-	    (*commands[i].func)(buffor);
-	    count++;
-	    break;
-	 }
-         
-      if(ok!=1) 
-        {
-          char name[STRING],*newargv[MAXCMD],buffor[STRING],buff[STRING];
-          int i,argc;
-          
-	  for(i=0 ; i<MAXCMD ; i++)
-	    newargv[i]=NULL;
-
-	  Replace(argv,opt,buff);                       /* Rozwiniecie parametrow */
-	  sprintf(buffor,"%s %s",comand,buff);
-	  StrToArgv(buffor,newargv,&argc);
-	  if(Batch(commands,newargv[0],newargv)==-1) {	/* W biezacym katalogu */
-	    int index=0,ok=0;
-	    for( ; ; index++) {
-	      if(makePathName(name,index)==NULL)
-		break;
-
-	      strcat(name,newargv[0]);
-	      if(Batch(commands,name,newargv)!=-1) {
-		ok=1;
-		break;
-	      }
-	      if(ok==0) k++;
-	    }
-	  }
-	  FreeArgv(newargv,argc);
+		return -1;
 	}
+	
+	if((plik=fopen(filename,"rt"))==NULL)
+		return -1;
+	
+	if(prn==1)
+		fprintf(stdout,"\t\t\t<<< START OF SCRIPT %s >>>\n",filename);
+	
+	while(commands[n].command!=NULL) 
+		n++; /* Liczba dostepnych opcji */
+
+	while(!feof(plik))
+    {
+		comand[0]='\0'; opt[0]='\0';
+		fscanf(plik,"%[^\n]\n",cmdline);
+		ok=i=0;
+		
+		while(cmdline[i] && isspace(cmdline[i]))
+			i++;
+		
+		if(cmdline[i]=='#')				/* Komentarz */
+			continue;
+		
+		sscanf(cmdline+i,"%s",comand);
+		
+		i+=strlen(comand);
+		
+		while(cmdline[i] && isspace(cmdline[i]))
+			i++;
+
+		sscanf(cmdline+i,"%[^\n]\n",opt);
+		
+		if(strcmp(comand,"end")==0) 			/* Zakonczenie skryptu */
+		{
+			if(prn==1)
+				fprintf(stdout,"[%d] BATCH(%s)>end\n",count,filename);
+			break;
+		}
+		
+		if(strcmp(comand,"batch")==0)
+		{
+			if(strcmp(opt,filename)!=0)			/* Zapobiega rekurencji (prymitywnie) */
+			{
+				char **newargv,*buffor;
+				int argc,i;
+				
+				if((newargv=(char **)malloc(MAXCMD*sizeof(char *)))==NULL)
+					continue;
+				
+				if((buffor=(char *)malloc(MAXCMD*sizeof(char)))==NULL) {
+					free((void *)newargv);
+					continue;
+				}
+				
+				if(prn==1)
+					fprintf(stdout,"[%d] BATCH(%s)>batch %s\n",count,filename,opt);
+				
+				for(i=0 ; i<MAXCMD ; i++)
+					newargv[i]=NULL;
+				
+				Replace(argv,opt,buffor);                     /* Rozwniecie parametrow */
+				StrToArgv(buffor,newargv,&argc);
+				if(Batch(commands,newargv[0],newargv)==-1)
+					fprintf(stderr,"File %s is missing !\n",opt);
+				FreeArgv(newargv,argc); free((void *)buffor); free((void *)newargv);
+				count++;
+				continue;
+			}
+		}
+		
+		if(strcmp(comand,"sys")==0)
+		{
+			if(prn==1)
+				fprintf(stdout,"[%d] BATCH(%s)>!%s\n",count,filename,opt);
+			if(system(opt)==-1)
+				fprintf(stderr,"Shell command not executed properly !\n");
+			count++;
+			continue;
+		}
+		
+		for(i=0 ; i<n ; i++)
+		{
+			/* Nieznane komedy sa ignorowane */
+			if(strcmp(commands[i].command,comand)==0)
+			{
+				char buffor[STRING];
+				
+				ok=1;
+				Replace(argv,opt,buffor);                   /* Rozwiniecie parametrow */
+				if(prn==1)
+					fprintf(stdout,"[%d] BATCH(%s)> %s %s\n",count,filename,comand,buffor);
+				(*commands[i].func)(buffor);
+				count++;
+				break;
+			}
+		}
+		
+		if(ok!=1) 
+		{
+			char name[STRING],*newargv[MAXCMD],buffor[STRING],buff[STRING];
+			int i,argc;
+			
+			for(i=0 ; i<MAXCMD ; i++)
+				newargv[i]=NULL;
+			
+			Replace(argv,opt,buff);                       /* Rozwiniecie parametrow */
+			
+			sprintf(buffor,"%s %s",comand,buff);
+			StrToArgv(buffor,newargv,&argc);
+			
+			if(Batch(commands,newargv[0],newargv)==-1)
+			{	
+				/* W biezacym katalogu */
+				int index=0,ok=0;
+				
+				for( ; ; index++)
+				{
+					if(makePathName(name,index)==NULL)
+						break;
+					
+					strcat(name,newargv[0]);
+
+					if(Batch(commands,name,newargv)!=-1)
+					{
+						ok=1;
+						break;
+					}
+					
+					if(ok==0)
+						k++;
+				}
+			}
+			
+			FreeArgv(newargv,argc);
+		}
     }
     
-  fclose(plik);
-  free((void *)cmdline); free((void *)comand); free((void *)opt);
-  if(prn==1)
-    fprintf(stdout,"\n%4d ignored command(s)\n\t\t\t<<< END OF SCRIPT %s >>>\n",
-	    k,filename);
-  return 0;  
+	fclose(plik);
+	
+	free((void *)cmdline); 
+	free((void *)comand); 
+	free((void *)opt);
+	
+	if(prn==1)
+		fprintf(stdout,"\n%4d ignored command(s)\n\t\t\t<<< END OF SCRIPT %s >>>\n",
+		k,filename);
+	
+	return 0;  
 }
 
 void Shell(COMMAND commands[],char *help[])
 {
-  char cmdline[STRING],argv[MAXCMD],argp[MAXCMD];
-  int i,opcja,n=0,j,ok,len,count=0,itmp;
-
-  while(commands[n].command!=NULL) n++;
-  for( ; ; )
-      {					/* Interactive mode */
-	fprintf(stdout,"[%d]MP> ",count); fflush(stdout);
-	argv[0]=argp[0]=0; cmdline[0]=0;
-	if(!fgets(cmdline,sizeof(cmdline)-1,stdin))
-	 {
-	   fprintf(stderr,"Read error ! [%s]\n",cmdline);
-	   return;
-	 }
-
-	i=0;
-	while(cmdline[i] && isspace(cmdline[i])) i++;
-	(void)sscanf(cmdline+i,"%s",argv);
-
-	len=strlen(argv);
-	if(len==0) continue;
-	i+=len;
-	while(cmdline[i] && isspace(cmdline[i])) i++;
-	(void)sscanf(cmdline+i,"%[^\n]\n",argp);
-
-	AppendHistory(count,argv,argp); count++;
-
-	if(strcmp(argv,"history")==0)
-	  {
-	   if(strlen(argp)>0)
-	    {
-	      itmp=atoi(argp);
-	      ok=0;
-	      for(i=0 ; i<CountHist ; i++)
-	       if(HistTable[i]->count==itmp)
-		 {
-		    ok=1;
-		    strcpy(argv,HistTable[i]->napis);
-		    strcpy(argp,HistTable[i]->opt);
-		    fprintf(stdout,"[%d] (HISTORY [%d]) MP> %s %s\n",
-				    count-1,itmp,argv,argp);
-		    break;
-		 }
-
-	       if(!ok)
-		 {
-		   fprintf(stderr,"No such number\n");
-		   continue;
-		 }
-	      }
-	   else
-	    {
-	      fprintf(stdout,"\t\t<<< HISTORY >>>\n");
-	      for(i=0 ; i<CountHist ; i++)
-	       {
-		  fprintf(stdout,"[%d] %s %s\n",HistTable[i]->count,
-					      HistTable[i]->napis,
-					      HistTable[i]->opt);
-		  if(((i+1)%20)==0) pause();
-	       }
-	      fprintf(stdout,"\n");
-	      continue;
-	    }
-	  }
-
-	if(strcmp(argv,"man")==0) {
-	  fprintf(stdout,"\n\t\t<<< BUILT-IN COMMANDS >>\n"
-		         "exit        \t\t- leave shell\n"
-		         "ls          \t\t- current directory listing\n"
-		         "history [nr]\t\t- display entered commands or execute [nr] if given\n"
-		         "batch       \t\t- run commands from file\n"
-		         "!comd       \t\t- run a shell command comd\n"
-		         "man         \t\t- display all available help\n"
-		         "sys comd    \t\t- run shell command comd in script\n");
-
-	  fprintf(stdout,"<<< NEXT - ENTER q - QUIT >>> ");
-	  if(getchar()!='q') {
-	    if(help!=NULL)
-	      PrintAllHelp(commands,help,n); 
-	  } else (void)getchar();
-	  continue;
-	}
-
-	if(strcmp(argv,"help")==0 || strcmp(argv,"?")==0 || strcmp(argv,"h")==0)
-	    {
-	      ok=0;
-	      if(strlen(argp)>0)
-	       {
-		 if(strcmp(argp,"help")==0 || strcmp(argp,"?")==0)
-		  {
-		    ok=1;
-		    fprintf(stderr,"help [arg] or ? [arg] -- info about the arg command\n");
-		  } 
-                 else if(strcmp(argp,"batch")==0)
-                     {
-                       ok=1;
-		       fprintf(stderr,"batch file -- run script file\n");
-		     }	
-		 else if(strcmp(argp,"sys")==0)
-			 {
-			   ok=1;
-			   fprintf(stderr,"sys comd -- run shell command comd (from a script only)\n");
-			 }
-		 else if(strcmp(argp,"ls")==0)
-			 {
-			   ok=1;
-			   fprintf(stderr,"ls adir -- listing of directory adir, regexp allowed\n"); 
-			 }
-		 else if(strcmp(argp,"history")==0)
+	char cmdline[STRING],argv[MAXCMD],argp[MAXCMD];
+	
+	int i,opcja,n=0,j,ok,len,count=0,itmp;
+	
+	while(commands[n].command!=NULL) n++;
+	
+	for( ; ; )
+	{					/* Interactive mode */
+		fprintf(stdout,"[%d]MP> ",count); fflush(stdout);
+		argv[0]=argp[0]=0; cmdline[0]=0;
+		
+		if(!fgets(cmdline,sizeof(cmdline)-1,stdin))
+		{
+			fprintf(stderr,"Read error ! [%s]\n",cmdline);
+			return;
+		}
+		
+		i=0;
+		while(cmdline[i] && isspace(cmdline[i])) i++;
+		(void)sscanf(cmdline+i,"%s",argv);
+		
+		len=strlen(argv);
+		if(len==0) continue;
+		i+=len;
+		while(cmdline[i] && isspace(cmdline[i])) i++;
+		(void)sscanf(cmdline+i,"%[^\n]\n",argp);
+		
+		AppendHistory(count,argv,argp); count++;
+		
+		if(strcmp(argv,"history")==0)
+		{
+			if(strlen(argp)>0)
 			{
-			  ok=1;
-			  fprintf(stderr,"history [nr] -- list entered commands\n"	
-					 "\t\t or if [nr] given - run command No [nr]\n");
-		        }
-		 else for(j=0 ; j<n ; j++)
-		        if(strcmp(commands[j].command,argp)==0)
-		          {
-		     	     ok=1;
-		             fprintf(stdout,"%-10s - ",commands[j].command);
-	   	             if(help!=NULL)
-			        fprintf(stdout,"%s ",help[j]);
-		             fprintf(stdout,"\n");
-		             break;
-		           }
-		  if(!ok) 
-		     fprintf(stdout,"Unknown command : %s\n",argp);
-	       }
-	       else
-		 { fprintf(stdout,"%s\n",firsthelp); }
-	       continue;
-	    }
+				itmp=atoi(argp);
+				ok=0;
+				for(i=0 ; i<CountHist ; i++)
+				{
+					if(HistTable[i]->count==itmp)
+					{
+						ok=1;
+						strcpy(argv,HistTable[i]->napis);
+						strcpy(argp,HistTable[i]->opt);
+						fprintf(stdout,"[%d] (HISTORY [%d]) MP> %s %s\n",
+							count-1,itmp,argv,argp);
+						break;
+					}
+				}
+					
+				if(!ok)
+				{
+					fprintf(stderr,"No such number\n");
+					continue;
+				}
+			}
+			else
+			{
+				fprintf(stdout,"\t\t<<< HISTORY >>>\n");
+				
+				for(i=0 ; i<CountHist ; i++)
+				{
+					fprintf(stdout,"[%d] %s %s\n",HistTable[i]->count,
+						HistTable[i]->napis,
+						HistTable[i]->opt);
+				
+					if(((i+1)%20)==0) 
+						pause();
+				}
+				
+				fprintf(stdout,"\n");
+				continue;
+			}
+		}
+		
+		if(strcmp(argv,"man")==0)
+		{
+			fprintf(stdout,"\n\t\t<<< BUILT-IN COMMANDS >>\n"
+				"exit        \t\t- leave shell\n"
+				"ls          \t\t- current directory listing\n"
+				"history [nr]\t\t- display entered commands or execute [nr] if given\n"
+				"batch       \t\t- run commands from file\n"
+				"!comd       \t\t- run a shell command comd\n"
+				"man         \t\t- display all available help\n"
+				"sys comd    \t\t- run shell command comd in script\n");
+			
+			fprintf(stdout,"<<< NEXT - ENTER q - QUIT >>> ");
+		
+			if(getchar()!='q')
+			{
+				if(help!=NULL)
+					PrintAllHelp(commands,help,n); 
+			}
+			else 
+				(void)getchar();
+			
+			continue;
+		}
+		
+		if(strcmp(argv,"help")==0 || strcmp(argv,"?")==0 || strcmp(argv,"h")==0)
+		{
+			ok=0;
+			
+			if(strlen(argp)>0)
+			{
+				if(strcmp(argp,"help")==0 || strcmp(argp,"?")==0)
+				{
+					ok=1;
+					fprintf(stderr,"help [arg] or ? [arg] -- info about the arg command\n");
+				} 
+				else if(strcmp(argp,"batch")==0)
+				{
+					ok=1;
+					fprintf(stderr,"batch file -- run script file\n");
+				}	
+				else if(strcmp(argp,"sys")==0)
+				{
+					ok=1;
+					fprintf(stderr,"sys comd -- run shell command comd (from a script only)\n");
+				}
+				else if(strcmp(argp,"ls")==0)
+				{
+					ok=1;
+					fprintf(stderr,"ls adir -- listing of directory adir, regexp allowed\n"); 
+				}
+				else if(strcmp(argp,"history")==0)
+				{
+					ok=1;
+					fprintf(stderr,"history [nr] -- list entered commands\n"	
+						"\t\t or if [nr] given - run command No [nr]\n");
+				}
+				else
+					for(j=0 ; j<n ; j++)
+					if(strcmp(commands[j].command,argp)==0)
+					{
+						ok=1;
+						fprintf(stdout,"%-10s - ",commands[j].command);
+						if(help!=NULL)
+							fprintf(stdout,"%s ",help[j]);
+						fprintf(stdout,"\n");
+						break;
+					}
+					if(!ok) 
+						fprintf(stdout,"Unknown command : %s\n",argp);
+			}
+			else
+			{ fprintf(stdout,"%s\n",firsthelp); }
+			continue;
+		}
+		
+		if(strcmp(argv,"exit")==0) {
+			DeleteHistory();
+			if(prn==1)
+				fprintf(stdout,"<<< LEAVING MP SHELL >>>\n");
+			Quit("");
+			break;
+		}
+		
+		if(strcmp(argv,"ls")==0)
+		{
+			ls(argp);
+			continue;
+		}
+		
+		if(strcmp(argv,"batch")==0)
+		{
+			char *newargv[MAXCMD];
+			int i,argc;
+			
+			for(i=0 ; i<MAXCMD ; i++)
+				newargv[i]=NULL;
+			
+			StrToArgv(argp,newargv,&argc);
+			if(Batch(commands,newargv[0],newargv)==-1)
+				fprintf(stderr,"Missing file %s !\n",argp);
+			FreeArgv(newargv,argc);
+			continue;
+		}
+		
+		if(strcmp(argv,"!")==0)
+		{
+			if(system(argp)==-1)
+				fprintf(stderr,"Error executing system command !\n");
+			continue;
+		}
+		
+		if(argv[0]=='!')
+		{
+			argv[0]=' ';
+			(void)strcat(argv," "); (void)strcat(argv,argp);
+			if(system(argv)==-1)
+				fprintf(stderr,"Error executing system command !\n");
+			continue;
+		}
+		
+		opcja=-1;				/* Opcje zewnetrzne */
+		
+		for(i=0 ; i<n ; i++)
+			if(strcmp(commands[i].command,argv)==0)
+			{
+				opcja=i;
+				(*commands[i].func)(argp);
+				break;
+			}
+			
+			if(opcja==-1)
+			{
+				char name[STRING],*newargv[MAXCMD],buffor[STRING];
+				int argc,i;
+				
+				for(i=0 ; i<MAXCMD ; i++)
+					newargv[i]=NULL;
+				
+				sprintf(buffor,"%s %s",argv,argp);
+				StrToArgv(buffor,newargv,&argc);
+				
+				if(Batch(commands,newargv[0],newargv)==-1)
+				{	 /* Polecenia w biezacym katologu */
+					int index=0,ok=0;
+					
+					for( ; ; index++)
+					{
+						if(makePathName(name,index)==NULL)
+							break;
+						
+						strcat(name,newargv[0]);
+						if(Batch(commands,name,newargv)!=-1) {
+							ok=1;
+							break;
+						}
+					}
 
-	if(strcmp(argv,"exit")==0) {
-	  DeleteHistory();
-	   if(prn==1)
-             fprintf(stdout,"<<< LEAVING MP SHELL >>>\n");
-	   Quit("");
-	   break;
-	}
-
-	if(strcmp(argv,"ls")==0)
-	 {
-	   ls(argp);
-	   continue;
-	 }
-
-	if(strcmp(argv,"batch")==0)
-	  {
-	    char *newargv[MAXCMD];
-	    int i,argc;
-
-	    for(i=0 ; i<MAXCMD ; i++)
-	      newargv[i]=NULL;
-
-	    StrToArgv(argp,newargv,&argc);
-	    if(Batch(commands,newargv[0],newargv)==-1)
-              fprintf(stderr,"Missing file %s !\n",argp);
-	    FreeArgv(newargv,argc);
-	    continue;
-	  }
-
-	if(strcmp(argv,"!")==0)
-	  {
-	    if(system(argp)==-1)
-	      fprintf(stderr,"Error executing system command !\n");
-	    continue;
-	  }
-
-	if(argv[0]=='!')
-	  {
-	    argv[0]=' ';
-	    (void)strcat(argv," "); (void)strcat(argv,argp);
-	    if(system(argv)==-1)
-	      fprintf(stderr,"Error executing system command !\n");
-	    continue;
-	  }
-
-	opcja=-1;				/* Opcje zewnetrzne */
-	for(i=0 ; i<n ; i++)
-	 if(strcmp(commands[i].command,argv)==0)
-	    {
-	      opcja=i;
-	      (*commands[i].func)(argp);
-	      break;
-	    }
-
-	if(opcja==-1)
-         {
-          char name[STRING],*newargv[MAXCMD],buffor[STRING];
-          int argc,i;
-          
-	  for(i=0 ; i<MAXCMD ; i++)
-	    newargv[i]=NULL;
-
-	  sprintf(buffor,"%s %s",argv,argp);
-	  StrToArgv(buffor,newargv,&argc);
-                  
-          if(Batch(commands,newargv[0],newargv)==-1) {	 /* Polecenia w biezacym katologu */
-	    int index=0,ok=0;
-	    for( ; ; index++) {
-	      if(makePathName(name,index)==NULL)
-		break;
-
-	      strcat(name,newargv[0]);
-	      if(Batch(commands,name,newargv)!=-1) {
-		ok=1;
-		break;
-	      }
-	    }
-	    if(ok==0) 
-	      fprintf(stderr,"MP: Unknown command %s or bad script path %s\n",
-		      argv,BatchPath);
-	  }
-
-	  FreeArgv(newargv,argc);
-	 }    
+					if(ok==0) 
+						fprintf(stderr,"MP: Unknown command %s or bad script path %s\n",
+						argv,BatchPath);
+				}
+				
+				FreeArgv(newargv,argc);
+			}    
       }
 }
 
@@ -989,7 +1052,11 @@ extern int javaMode;
 
 #ifndef MULTITHREAD
 #include <signal.h>
+// #include <signum.h>
 #endif
+
+// modified by GD
+#define SIGCLD 18
 
 void Quit(char *opt) {
     if(javaMode) {

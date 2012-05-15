@@ -19,28 +19,42 @@
 extern void setChannelFunc(char *);
 extern int debug;
 
-static int countAllBook(char *opt) {
-  FILE *file;
-  int mode;
+static int countAllBook(char *opt)
+{
+	FILE *file;
+	int mode;
+	
+	if(opt[0] == '\0')
+	{
+		fprintf(stdout,"No file name...\n");
+		return -1;
+	}
+	
+	if((file=fopen(trim(opt),"rb"))==NULL)
+	{
+		fprintf(stdout,"Cannot open file %s ...\n",opt);
+		return -1;
+	}
+	
+	mode=checkBookVersion(file);
+	fclose(file);
 
-  if((file=fopen(trim(opt),"rb"))==NULL) {
-    fprintf(stdout,"Cannot open file %s ...\n",opt);
-    return -1;
-  }
+	if(mode==-1)
+	{
+		if(prn==ON)
+			fprintf(stdout,"<<< OLD BOOK FORMAT >>>\n");
+		return LicznikKsiazek(opt);
+	}
+	else
+	{
+		if(prn==ON)
+			/*PJD      fprintf(stdout,"<<< NEW BOOK FORMAT >>>\n"); */
+			fprintf(stdout,"<<< BOOK FORMAT v. III >>>\n");
 
-  mode=checkBookVersion(file);
-  fclose(file);
-  if(mode==-1) {
-    if(prn==ON)
-      fprintf(stdout,"<<< OLD BOOK FORMAT >>>\n");
-    return LicznikKsiazek(opt);
-  } else {
-    if(prn==ON)
-      /*PJD      fprintf(stdout,"<<< NEW BOOK FORMAT >>>\n"); */
-      fprintf(stdout,"<<< BOOK FORMAT v. III >>>\n");
-    return countBook(opt);
-  }
-  return -1;
+		return countBook(opt);
+	}
+
+	return -1;
 }
 
 char firsthelp[]="list          -  full listing of commands with short descriptions\n"
@@ -495,219 +509,234 @@ void ReInitBaseSize(int NewDimBase,int NewOverSampling)
 int javaMode=OFF;
 
 int main(int argc,char *argv[])
- {
-   char filename[STRING],*path;
-   int opcja,TimeSrand=OFF,i,makebatch=OFF,OldPrn;
-
+{
+	char filename[STRING],*path;
+	int opcja,TimeSrand=OFF,i,makebatch=OFF,OldPrn;
+	
 #ifdef MULTITHREAD
-   /* UWAGA !
-      Blokowanie sygnalu SIGCLD zapobiega powstawaniu procesow ZOMBI
-      w przypadku wczesniejszego zakonczenia procesu potomnego
-      konstrukcja nieprzenosna dziala pod Linux'em
-   */
-
-   if(signal(SIGCLD,SIG_IGN)==SIG_ERR)
-     {
-       fprintf(stderr,"Problems trapping signal SIGCLD !\n");
-       return 1;
-     }
+	/* UWAGA !
+	Blokowanie sygnalu SIGCLD zapobiega powstawaniu procesow ZOMBI
+	w przypadku wczesniejszego zakonczenia procesu potomnego
+	konstrukcja nieprzenosna dziala pod Linux'em
+	*/
+	
+	if(signal(SIGCLD,SIG_IGN)==SIG_ERR)
+	{
+		fprintf(stderr,"Problems trapping signal SIGCLD !\n");
+		return 1;
+	}
 #endif
-
-   sortAlphabetic();            /* Sortowanie polecen w kolejnosci alfabetycznej */
-   OldDimRoz=32;                /* Liczba atomow do rekonstrukcji */
-   DimBase=512;                 /* Wymiar sygnalu */
-   epsylon=95.0F;               /* Dokladniosc rekonstrukcji */
-   prn=ON;                      /* Drukowanie informacji */
-   SamplingRate=1.0;            /* Czestotliwosc probkowania */
-   ConvRate=1.0;                /* Wspolczynnik konwersji */
-   RandomType=NOFUNCRND;        /* Sposob generacji atomow */
-   DiadicStructure=OFF;         /* Diadyczna struktura slownika */
-   FastMode=ON;                 /* Szybka generacja atomow (wymaga duzo pamieci) */
-   VeryFastMode=ON;             /* Bardzo szybka generacja iloczynow skalarnych */
-   DictionSize=70000;           /* Domyslny rozmiar slownika */
-   Heuristic=OFF;               /* Wspomaganie heurystyczne */
-   StartDictionSize=25000;      /* Rozmiar slownika do probkowania */
-   MallatDiction=OFF;           /* Slownik Mallata */
-   OverSampling=2;              /* Przeprobkowanie slownika */
-
-   while((opcja=Getopt(argc,argv,"R:P:E:M:HhB:O:F:C:i:x:dsfN:TS:v:JD:X"))!=EOF)
-      switch(opcja) {
+	
+	sortAlphabetic();            /* Sortowanie polecen w kolejnosci alfabetycznej */
+	OldDimRoz=32;                /* Liczba atomow do rekonstrukcji */
+	DimBase=512;                 /* Wymiar sygnalu */
+	epsylon=95.0F;               /* Dokladniosc rekonstrukcji */
+	prn=ON;                      /* Drukowanie informacji */
+	SamplingRate=1.0;            /* Czestotliwosc probkowania */
+	ConvRate=1.0;                /* Wspolczynnik konwersji */
+	RandomType=NOFUNCRND;        /* Sposob generacji atomow */
+	DiadicStructure=OFF;         /* Diadyczna struktura slownika */
+	FastMode=ON;                 /* Szybka generacja atomow (wymaga duzo pamieci) */
+	VeryFastMode=ON;             /* Bardzo szybka generacja iloczynow skalarnych */
+	DictionSize=70000;           /* Domyslny rozmiar slownika */
+	Heuristic=OFF;               /* Wspomaganie heurystyczne */
+	StartDictionSize=25000;      /* Rozmiar slownika do probkowania */
+	MallatDiction=OFF;           /* Slownik Mallata */
+	OverSampling=2;              /* Przeprobkowanie slownika */
+	
+	while((opcja=Getopt(argc,argv,"R:P:E:M:HhB:O:F:C:i:x:dsfN:TS:v:JD:X"))!=EOF)
+	{
+		switch(opcja)
+		{
         case 'X':
-	      debug=1;
-	      break;
+			debug=1;
+			break;
         case 'S':
-              OverSampling=atoi(optarg);
+			OverSampling=atoi(optarg);
         case 'T':
-              MallatDiction=ON;
-              DiadicStructure=ON;
-              break;
+			MallatDiction=ON;
+			DiadicStructure=ON;
+			break;
         case 'N':
-              Heuristic=ON;     /* Pozostale parametry domyslne w mp.c */
-              sscanf(optarg,"%d,%d,%d,%d",&StartDictionSize,&ROctave,
-                                          &RFreqency,&RPosition);
-              break;
+			Heuristic=ON;     /* Pozostale parametry domyslne w mp.c */
+			sscanf(optarg,"%d,%d,%d,%d",&StartDictionSize,&ROctave,
+				&RFreqency,&RPosition);
+			break;
         case 'v':
-              if(strcmp(optarg,"+")==0)
+			if(strcmp(optarg,"+")==0)
                 FastMode=VeryFastMode=ON;
-              else if(strcmp(optarg,"-")==0)
+			else if(strcmp(optarg,"-")==0)
                 VeryFastMode=OFF;
-              else
-                {
-                  fprintf(stderr,"Available options -v[-|+] !\n");
-                  return 1;
-                }
-              break;
+			else
+			{
+				fprintf(stderr,"Available options -v[-|+] !\n");
+				return 1;
+			}
+			break;
         case 'P':
-              if(strcmp(optarg,"+")==0)
+			if(strcmp(optarg,"+")==0)
                 prn=ON;
-              else if(strcmp(optarg,"-")==0)
+			else if(strcmp(optarg,"-")==0)
                 prn=OFF;
-              else
-                {
-                  fprintf(stderr,"Available options -P[-|+] !\n");
-                  return 1;
-                }
-              break;
+			else
+			{
+				fprintf(stderr,"Available options -P[-|+] !\n");
+				return 1;
+			}
+			break;
         case 'f':
-              FastMode=ON;
-              break;
+			FastMode=ON;
+			break;
         case 's':
-              FastMode=OFF;
-              break;
+			FastMode=OFF;
+			break;
         case 'd':
-	      DiadicStructure=ON;
-              break;
+			DiadicStructure=ON;
+			break;
         case 'R':
-              DictionSize=atoi(optarg);
-              break;
+			DictionSize=atoi(optarg);
+			break;
         case 'x':
-              (void)strcpy((char *)FunctionCode,optarg);
-              RandomType=FUNCRND;
-              MallatDiction=OFF;
-              break;
+			(void)strcpy((char *)FunctionCode,optarg);
+			RandomType=FUNCRND;
+			MallatDiction=OFF;
+			break;
         case 'i':
-                if(strcmp(optarg,"+")==0)
-                   TimeSrand=ON;
-                 else if(strcmp(optarg,"-")==0)
-                         TimeSrand=OFF;
-                      else
-                        {
-                          fprintf(stderr,"Available options -i[-|+] !\n");
-                          return 1;
-                        }
-                 break;
+			if(strcmp(optarg,"+")==0)
+				TimeSrand=ON;
+			else if(strcmp(optarg,"-")==0)
+				TimeSrand=OFF;
+			else
+			{
+				fprintf(stderr,"Available options -i[-|+] !\n");
+				return 1;
+			}
+			break;
         case 'O':
-                DimBase=atoi(optarg);
-                break;
+			DimBase=atoi(optarg);
+			break;
         case 'F':
-                 SamplingRate=atof(optarg);
-                 break;
+			SamplingRate=atof(optarg);
+			break;
         case 'C':
-                 ConvRate=atof(optarg);
-                 break;
+			ConvRate=atof(optarg);
+			break;
         case 'B':
-                 (void)strcpy(filename,optarg);
-                 makebatch=ON;
-                 break;
+			(void)strcpy(filename,optarg);
+			makebatch=ON;
+			break;
         case 'M':
-                OldDimRoz=atoi(optarg);
-                break;
+			OldDimRoz=atoi(optarg);
+			break;
         case 'E':
-                epsylon=atof(optarg);
-                break;
+			epsylon=atof(optarg);
+			break;
         case 'J':  /* Wylaczenie buforowania */
-	         javaMode=ON;
-                 setvbuf(stdout,(char *)NULL,_IOLBF,0);
-                 setvbuf(stderr,(char *)NULL,_IOLBF,0);
-                 break;
+			javaMode=ON;
+			setvbuf(stdout,(char *)NULL,_IOLBF,0);
+			setvbuf(stderr,(char *)NULL,_IOLBF,0);
+			break;
         case 'D':
-	         AdaptiveConst=(float)atof(optarg);
-	         break;
+			AdaptiveConst=(float)atof(optarg);
+			break;
         case 'H':
         case 'h':
         default:
-                PrintHelp();
-                return 0;
-      }
+			PrintHelp();
+			return 0;
+		}
+	}
+	
+	SetTuneScale();
 
-  SetTuneScale();
-  OldPrn=prn;                           /* Blokowanie drukowanie inforamcji */
-  prn=OFF;
-  if(MallatDiction==ON)
-    DictionSize=MakeMallatDictionary(DimBase,OverSampling,OFF);
+	OldPrn=prn;                           /* Blokowanie drukowanie inforamcji */
+	prn=OFF;
+	
+	if(MallatDiction==ON)
+		DictionSize=MakeMallatDictionary(DimBase,OverSampling,OFF);
+	
+	if((path=getenv("MP_PATH"))==NULL)       /* Sciezka dla batch'y  */
+	{
+		char path2[10]=".";
 
-  if((path=getenv("MP_PATH"))==NULL)       /* Sciezka dla batch'y  */
-   {
-     char path2[10]=".";
-     if(prn==ON)
-/*PJD        fprintf(stderr,"\nWARNING: environment variable MP_PATH not set !\n");*/
-        fprintf(stderr,"\nPath set to \".\" (HMPP env. var. not set)\n");
-     SetBatchPath(path2);
-   }
-  else SetBatchPath(path);
-
-  if(Heuristic==ON)                     /* Poprawnosc konfiguracji */
-   {
-     if(StartDictionSize>=DictionSize)
-       Heuristic=OFF;
-     else if(FastMode==OFF)
-       Heuristic=OFF;
-     else if(DiadicStructure==OFF)
-       Heuristic=OFF;
-   }
-
-  if(Heuristic==OFF)
-    StartDictionSize=DictionSize;
-
-  if(prn==ON && RandomType==FUNCRND)
-    fprintf(stdout,"VAL= %s\n",FunctionCode);
-
-  if(InicRandom(TimeSrand)==-1)
-   {
-    fprintf(stderr,"Problem initializing stochastic dictionary:(\n");
-     return 1;
-   }
-
-  if((sygnal=MakeVector(3*DimBase))==NULL ||
-      (OrgSygnal=MakeVector(DimBase))==NULL)
+		if(prn==ON)
+			/*PJD        fprintf(stderr,"\nWARNING: environment variable MP_PATH not set !\n");*/
+			fprintf(stderr,"\nPath set to \".\" (HMPP env. var. not set)\n");
+		SetBatchPath(path2);
+	}
+	else 
+		SetBatchPath(path);
+	
+	if(Heuristic==ON)                     /* Poprawnosc konfiguracji */
+	{
+		if(StartDictionSize>=DictionSize)
+			Heuristic=OFF;
+		else if(FastMode==OFF)
+			Heuristic=OFF;
+		else if(DiadicStructure==OFF)
+			Heuristic=OFF;
+	}
+	
+	if(Heuristic==OFF)
+		StartDictionSize=DictionSize;
+	
+	if(prn==ON && RandomType==FUNCRND)
+		fprintf(stdout,"VAL= %s\n",FunctionCode);
+	
+	if(InicRandom(TimeSrand)==-1)
+	{
+		fprintf(stderr,"Problem initializing stochastic dictionary:(\n");
+		return 1;
+	}
+	
+	if((sygnal=MakeVector(3*DimBase))==NULL ||
+		(OrgSygnal=MakeVector(DimBase))==NULL)
     {
-      fprintf(stderr,"Memory allocation error (main:(\n");
-      return 1;
+		fprintf(stderr,"Memory allocation error (main:(\n");
+		return 1;
     }
+	
+	for(i=0 ; i<3*DimBase ; i++)
+		sygnal[i]=0.0F;
+	
+	for(i=0 ; i<DimBase ; i++)
+		OrgSygnal[i]=0.0F;
+	
+	AllocStatus=ON;
+	
+	if(Batch(commands,"mp.cfg",NULL)==-1)      /* Plik konfiguracyjny */
+	{
+		char name[STRING];
+		strcmp(name,BatchPath); strcat(name,"mp.cfg");
+		if(Batch(commands,name,NULL)==-1)
+			if(prn==ON)
+				fprintf(stderr,"\nNo config file (mp.cfg)\n");
+	}
+	
+	prn=OldPrn;                          /* mozna ustawic prn */
 
-   for(i=0 ; i<3*DimBase ; i++)
-     sygnal[i]=0.0F;
-   for(i=0 ; i<DimBase ; i++)
-     OrgSygnal[i]=0.0F;
+	if(makebatch==ON)
+	{
+		if(Batch(commands,filename,NULL)==-1)      /* Wykonanie skryptu */
+		{
+			fprintf(stderr,"cannot find script file %s\n",filename);
+			return 1;
+		}
+	}
+		
+	if(prn==ON)
+	{
+		SourceVersion(NULL);
+		SetMPP("");
+	}
+	
+	Shell(commands,help);        /* Rozpoczecie trybu iteracyjnego */
+	
+	CloseRand2D();
+	
+	free((void *)sygnal);
+	free((void *)OrgSygnal);
 
-   AllocStatus=ON;
-   if(Batch(commands,"mp.cfg",NULL)==-1)      /* Plik konfiguracyjny */
-     {
-       char name[STRING];
-       strcmp(name,BatchPath); strcat(name,"mp.cfg");
-       if(Batch(commands,name,NULL)==-1)
-         if(prn==ON)
-           fprintf(stderr,"\nNo config file (mp.cfg)\n");
-     }
-
-   prn=OldPrn;                          /* mozna ustawic prn */
-   if(makebatch==ON)
-     if(Batch(commands,filename,NULL)==-1)      /* Wykonanie skryptu */
-      {
-        fprintf(stderr,"cannot find script file %s\n",filename);
-        return 1;
-      }
-
-   if(prn==ON)
-    {
-     SourceVersion(NULL);
-     SetMPP("");
-    }
-
-   Shell(commands,help);        /* Rozpoczecie trybu iteracyjnego */
-   CloseRand2D();
-   free((void *)sygnal);
-   free((void *)OrgSygnal);
-   CloseTune();
-   return 0;
- }
+	CloseTune();
+	return 0;
+}
